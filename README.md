@@ -58,9 +58,18 @@ re-install. If the engine doesn't serve it, the bundled copy is always a valid f
 plugins/dvt/
   .claude-plugin/plugin.json    plugin manifest (name "dvt", semver)
   commands/connect.md           /dvt:connect — first-run setup + verify (registers the MCP server)
-  skills/dvt-spec-author/        vendored dvt dashboard-spec authoring skill
+  commands/dvt-review.md        /dvt:dvt-review — critique a spec or a built dashboard, GO / REVISE
+  agents/dvt-layout-critic.md   layout, visual design, readability — PASS / NEEDS ATTENTION / SIGNIFICANT ISSUES
+  agents/dvt-narrative-critic.md  analytical story coherence — COHERENT / PARTIALLY COHERENT / INCOHERENT
+  skills/dvt-spec-author/       vendored dvt dashboard-spec authoring skill
+  icon.svg
   README.md
+  SETUP.md                      connecting from Cowork (GUI-only environments)
 scripts/sync-from-dvt.sh        re-sync the vendored skill from canonical getdvt/dvt
+.github/workflows/
+  skill-drift.yml               fails if the vendored skill diverges from canonical
+  plugin-validate.yml           manifest + structure validation
+  plugin-release.yml            version + tag automation
 RELEASING.md                    version + tag convention (semver in plugin.json)
 LICENSE                         Apache-2.0
 ```
