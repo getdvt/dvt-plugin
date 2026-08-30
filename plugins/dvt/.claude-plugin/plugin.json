@@ -1,0 +1,13 @@
+{
+  "name": "dvt",
+  "version": "0.5.20",
+  "description": "dvt dashboards-as-data: author, review, and apply dashboard specs from your AI harness against dvt Gallery (mcp.dvt.dev). Includes /dvt:dvt-review \u2014 a narrative + layout critique of a spec pre-apply, or of a built dashboard including its rendered pages.",
+  "author": {
+    "name": "dvt",
+    "email": "team@dvt.dev"
+  },
+  "homepage": "https://dvt.dev",
+  "repository": "https://github.com/getdvt/dvt-plugin",
+  "license": "Apache-2.0",
+  "keywords": ["dashboards", "data-visualization", "analytics", "dashboards-as-data", "mcp", "sql", "warehouse"]
+}

@@ -1,0 +1,112 @@
+name: plugin-release
+
+# Codifies the RELEASING.md "Cutting a release" flow so it can't be skipped:
+#  1. version-bump-check — any PR touching plugins/** MUST bump plugin.json version forward.
+#  2. tag-on-merge        — on push to main, tag v<version> if that tag doesn't already exist.
+# Both must be idempotent/safe to re-run — a re-run, or a merge that doesn't bump the version,
+# must not red tag-on-merge.
+# (DVT-3298: zero tags had ever been pushed across 47 merged PRs because nothing automated it.
+# Measured on origin/main: 6 of the last 20 plugins/** commits shipped with no version bump —
+# version-bump-check is the half of the fix that catches those before merge.)
+# Mirrors getdvt/claude-org's plugin-release.yml (version-bump-check + tag-on-merge; claude-org's
+# roster-count-check has no analogue here — dvt-plugin has no agent roster).
+
+on:
+  pull_request:
+    paths:
+      - 'plugins/**'
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  PLUGIN_JSON: plugins/dvt/.claude-plugin/plugin.json
+
+jobs:
+  version-bump-check:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4 (SHA-pinned; Dependabot bumps)
+        with:
+          fetch-depth: 0
+
+      - name: Require a plugin.json version bump on plugins/** changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          # The checked-out ref for a pull_request event is refs/pull/N/merge, whose first parent
+          # is the current tip of the base branch — re-evaluated on every run. BASE_SHA (the PR
+          # event's recorded base.sha) is frozen at the last event and goes stale as main advances,
+          # letting a PR branched from an older main merge a backwards version (DVT-3298 M1).
+          base=$(git rev-parse HEAD^1 2>/dev/null || echo "$BASE_SHA")
+          head_ver=$(python3 -c "import json; print(json.load(open(\"$PLUGIN_JSON\"))['version'])")
+          if git cat-file -e "$base:$PLUGIN_JSON" 2>/dev/null; then
+            base_ver=$(git show "$base:$PLUGIN_JSON" | python3 -c "import json,sys; print(json.load(sys.stdin)['version'])")
+          else
+            base_ver="(absent on base)"
+          fi
+          echo "base commit: $base"
+          echo "base version: $base_ver"
+          echo "head version: $head_ver"
+          if [ "$base_ver" = "(absent on base)" ]; then
+            # Distinguish "plugin.json is genuinely new" from "we couldn't resolve a base at all" —
+            # the latter must red, not silently pass (DVT-3298 L1: a future fetch-depth regression
+            # would otherwise turn this whole gate into a permanent, green no-op).
+            if git rev-parse -q --verify "$base^{commit}" >/dev/null 2>&1; then
+              echo "plugin.json is new on this branch (version $head_ver). OK."
+              exit 0
+            else
+              echo "::error::Could not resolve a valid base commit ($base) to check plugin.json against."
+              echo "::error::This likely means fetch-depth: 0 was dropped from the checkout step — fix that rather than bypass this gate."
+              exit 1
+            fi
+          fi
+          if [ "$head_ver" = "$base_ver" ]; then
+            echo "::error::This PR touches plugins/** but plugin.json version is still $head_ver."
+            echo "::error::Bump the version (semver) — the SessionStart update nudge only fires on a version delta, so un-bumped changes ship to nobody."
+            exit 1
+          fi
+          # Must be a strict increase, not just a change — a merge-conflict revert that lowers the
+          # version would otherwise pass and desync the tag sequence.
+          higher=$(printf '%s\n%s\n' "$base_ver" "$head_ver" | sort -V | tail -1)
+          if [ "$higher" != "$head_ver" ]; then
+            echo "::error::plugin.json version went backwards: $base_ver -> $head_ver. Bump forward (semver)."
+            exit 1
+          fi
+          echo "Version bumped $base_ver -> $head_ver. OK."
+
+  tag-on-merge:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # only this job pushes the tag
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4 (SHA-pinned; Dependabot bumps)
+        with:
+          fetch-depth: 0
+
+      - name: Tag v<version> if not already tagged
+        run: |
+          set -euo pipefail
+          ver=$(python3 -c "import json; print(json.load(open(\"$PLUGIN_JSON\"))['version'])")
+          tag="v$ver"
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            echo "Tag $tag already exists locally — nothing to do."
+            exit 0
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
+            echo "Tag $tag already exists on origin — nothing to do."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$tag" -m "Release $tag"
+          # Tolerant push: a rejected ref because another run already created this exact tag is
+          # not a failure (concurrency block was removed — it cancelled PENDING runs and could
+          # permanently drop a tag; see DVT-3298 M2). A genuine push failure still reds.
+          git push origin "$tag" || git ls-remote --exit-code --tags origin "refs/tags/$tag"
+          echo "Tagged and pushed $tag."

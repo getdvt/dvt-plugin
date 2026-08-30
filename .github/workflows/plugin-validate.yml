@@ -1,0 +1,97 @@
+name: plugin-validate
+
+# Lightweight PR gate for the dvt Claude Code plugin: valid JSON manifests,
+# no committed secret, and required files present. Dependency-light (bash + python3).
+#
+# DVT-202 adds the canonical-drift workflow (asserts the vendored SKILL.md matches
+# the canonical copy in getdvt/dvt) separately — not here.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4 (SHA-pinned; Dependabot bumps)
+
+      - name: Validate JSON manifests
+        run: |
+          set -euo pipefail
+          # Required manifests, always present.
+          for f in \
+            .claude-plugin/marketplace.json \
+            plugins/dvt/.claude-plugin/plugin.json
+          do
+            echo "Parsing $f"
+            python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$f"
+          done
+          # Optional: validate a bundled MCP config if one is ever added (none ships today —
+          # /dvt:connect registers the server at runtime).
+          if [ -f plugins/dvt/.mcp.json ]; then
+            echo "Parsing plugins/dvt/.mcp.json"
+            python3 -c "import json,sys; json.load(open(sys.argv[1]))" plugins/dvt/.mcp.json
+          fi
+          echo "All JSON manifests parsed OK."
+
+      - name: Secret-leak gate
+        run: |
+          # GitHub Actions runs `run:` with `bash -e`; turn errexit OFF here because a clean
+          # tree means grep returns 1 (no-match), which would otherwise abort the step before
+          # we can inspect the exit code. We manage exit codes ourselves: rc==0 match (leak),
+          # rc==1 clean, rc>=2 grep error → fail closed.
+          set +e
+          set -uo pipefail
+          status=0
+          scan() {  # scan <label> <regex>; flags on match, fails closed on grep error
+            local label="$1" re="$2" rc
+            # -e PATTERN keeps a leading-dash regex (the PEM block) from being read as a flag;
+            # --exclude-dir stays before the path so it's parsed as an option, not a filename.
+            grep -rEn --exclude-dir=.git -e "$re" .
+            rc=$?
+            if [ "$rc" -eq 0 ]; then
+              echo "::error::Secret-leak gate: found ${label} in the repo."
+              status=1
+            elif [ "$rc" -ne 1 ]; then
+              echo "::error::Secret-leak gate: grep errored (rc=${rc}) scanning for ${label} — failing closed."
+              status=1
+            fi
+          }
+          # Real Gallery API keys look like dvt_live_<alnum>. None may ever be committed.
+          scan "a dvt_live_ key" 'dvt_live_[A-Za-z0-9]'
+          # PEM private-key blocks.
+          scan "a private key block" '-----BEGIN [A-Z ]*PRIVATE KEY-----'
+          # Generic bearer token with a real-looking value. The self-host flow invites arbitrary
+          # bearer headers, so a non-dvt_live_ token could leak into an example. Doc placeholders
+          # (<KEY>, <THEIR_KEY>, <your … key>, dvt_live_…) use angle brackets / a unicode ellipsis
+          # and so don't match the [A-Za-z0-9._-]{20,} value pattern below.
+          scan "a literal bearer token" 'Authorization: Bearer [A-Za-z0-9._-]{20,}'
+          if [ "$status" -ne 0 ]; then
+            echo "Secret-leak gate FAILED."
+            exit 1
+          fi
+          echo "Secret-leak gate clean."
+
+      - name: Assert required files exist
+        run: |
+          set -euo pipefail
+          required=(
+            .claude-plugin/marketplace.json
+            plugins/dvt/.claude-plugin/plugin.json
+            plugins/dvt/commands/connect.md
+            plugins/dvt/skills/dvt-spec-author/SKILL.md
+            LICENSE
+          )
+          missing=0
+          for f in "${required[@]}"; do
+            if [ ! -f "$f" ]; then
+              echo "::error::Missing required file: $f"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+          echo "All required files present."

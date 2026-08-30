@@ -1,0 +1,64 @@
+name: skill-drift
+
+# The dvt spec-authoring skill is authored canonically in getdvt/dvt
+# (web/public/dvt-spec-authoring-skill.md) and VENDORED into this plugin at
+# plugins/dvt/skills/dvt-spec-author/SKILL.md so the plugin installs offline with no
+# token into the private dvt repo. This job fails if the two copies drift apart.
+#
+# Upstream is demo.dvt.dev (the public deploy of the dvt app) because getdvt/dvt is
+# private and CI has no token to read it. Caveat: demo.dvt.dev reflects the last dvt
+# DEPLOY, so immediately after a dvt-side change this check can lag until dvt redeploys.
+# To fix drift locally: ./scripts/sync-from-dvt.sh (then commit + push).
+#
+# Coverage split: the PR trigger catches a hand-edit of THIS repo's vendored copy (its
+# `paths` filter only fires when the vendored file or this workflow changes). UPSTREAM
+# drift — the canonical file changing in getdvt/dvt while our copy stays put — produces
+# no PR here, so it is caught by the weekly `schedule` sweep, not by PRs. Don't promote
+# this to a required status check without accounting for that path-filtered/skipped
+# semantics.
+
+on:
+  pull_request:
+    paths:
+      - 'plugins/dvt/skills/dvt-spec-author/SKILL.md'
+      - '.github/workflows/skill-drift.yml'
+  schedule:
+    - cron: '23 13 * * 1'   # Mondays 13:23 UTC — weekly upstream-drift sweep
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    name: skill-drift
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4 (SHA-pinned; Dependabot bumps)
+
+      - name: Fetch canonical copy from demo.dvt.dev
+        run: |
+          # --retry absorbs transient demo.dvt.dev / Cloudflare blips so the weekly
+          # sweep doesn't go red on a momentary fetch failure (vs. a real drift).
+          curl -fsSL --retry 3 --retry-all-errors --retry-delay 5 \
+            -H 'Cache-Control: no-cache' \
+            https://demo.dvt.dev/dvt-spec-authoring-skill.md -o /tmp/canonical.md
+          # Guard against a soft-404 (SPA HTML fallback) masquerading as the file:
+          # demo.dvt.dev returns 200 + HTML for unknown paths, so `curl -f` can't catch
+          # it. Assert both the frontmatter delimiter AND the distinctive `name:` line
+          # (a stray `---` divider in an HTML shell shouldn't pass).
+          if ! head -1 /tmp/canonical.md | grep -q '^---$' \
+             || ! grep -q '^name: dvt-spec-author$' /tmp/canonical.md; then
+            echo "::error::demo.dvt.dev did not return the skill markdown (HTML fallback?). Cannot verify drift."
+            head -3 /tmp/canonical.md
+            exit 1
+          fi
+
+      - name: Compare against vendored copy
+        run: |
+          if ! diff -u /tmp/canonical.md plugins/dvt/skills/dvt-spec-author/SKILL.md; then
+            echo "::error::plugins/dvt/skills/dvt-spec-author/SKILL.md has drifted from the canonical copy in getdvt/dvt."
+            echo "Fix: run ./scripts/sync-from-dvt.sh (with the dvt repo checked out as a sibling), commit, and push."
+            exit 1
+          fi
+          echo "OK — vendored skill matches the canonical copy on demo.dvt.dev."

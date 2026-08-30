@@ -1,0 +1,21 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "dvt-plugin",
+  "description": "dvt — give your AI a home for the dashboards it builds. Author dvt dashboard specs and push them live from Claude Code.",
+  "owner": {
+    "name": "dvt",
+    "email": "team@dvt.dev"
+  },
+  "plugins": [
+    {
+      "name": "dvt",
+      "description": "Author dvt dashboards (dashboards-as-data) from your AI harness — bundles the spec-authoring skill + an MCP client to mcp.dvt.dev.",
+      "author": {
+        "name": "dvt"
+      },
+      "category": "productivity",
+      "source": "./plugins/dvt",
+      "homepage": "https://dvt.dev"
+    }
+  ]
+}
