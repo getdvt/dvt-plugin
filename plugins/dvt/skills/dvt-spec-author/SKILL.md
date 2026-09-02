@@ -1446,6 +1446,16 @@ lint-clean form. Note a **populated** `NOT IN` list still excludes NULL-dimensio
 rows per SQL's normal three-valued logic — only the fully-unset case is rewritten
 to show everything.
 
+**Two shapes look right and break on every driver** (both flagged by
+`dvt_spec_validate`, DVT-3646): `col = ANY(%(k)s)` — the engine expands a set
+list into a parenthesized value list, not an array, so `= ANY` errors on
+Postgres and Snowflake alike once a selection is set, and the unset state is
+never rewritten to show-all — and the double-wrapped `col IN (%(k)s)`, which
+the engine's own expansion turns into `IN ((a, b))`, a ROW value (`Invalid
+argument types for function 'IN'`). The bundled Pipeline Control Room example
+uses the portable form; copy that. Unset (no interaction) shows all rows; an
+explicitly emptied selection expands to `IN (NULL)` and shows none.
+
 The multi-select control's UX affordances are **automatic — no spec field**: a
 tri-state **Select all / Clear all** bulk row, an in-list **search** box (appears once
 the option list exceeds 8), an **"N selected"** footer summary, and **batched Apply**
