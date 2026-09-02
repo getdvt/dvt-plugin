@@ -25,7 +25,7 @@ Branch on their answer.
 
 1. Tell them to mint a key:
 
-   > Open **https://app.dvt.dev/app/api-keys**, create a new API key, and copy it. It looks like
+   > Open **<https://app.dvt.dev/app/api-keys>**, create a new API key, and copy it. It looks like
    > `dvt_live_…` and is shown only once. Paste it here when ready.
 
 2. When they paste the key, register an authenticated, user-scoped `dvt` MCP server. Run this exact
@@ -70,7 +70,7 @@ works: tell them so.
 If it fails, map the error:
 
 - **401 Unauthorized** → the key is wrong, expired, or revoked. Have them mint a fresh key at
-  https://app.dvt.dev/app/api-keys and re-run Step 2a.
+  <https://app.dvt.dev/app/api-keys> and re-run Step 2a.
 - **403 Forbidden** → the key is valid but lacks the scope (or the workspace tier) for this action.
   Point them at their key's scopes in the dvt app.
 - **Connection refused / cannot reach host** → the URL is wrong or the engine isn't running. For
@@ -80,7 +80,7 @@ If it fails, map the error:
 
 ## Step 4 — prefer your engine's skill revision (freshness, ADR-0047)
 
-This plugin bundles a vendored copy of the dvt spec-authoring skill (the `dvt-spec-author` skill,
+This plugin bundles a copy of the dvt spec-authoring skill (the `dvt-spec-author` skill,
 targeting spec **schemaVersion 1**) so it works offline and pre-connect. A connected dvt engine also
 serves **its own** copy of that skill — matched to the spec version that engine speaks — as a
 read-only MCP Resource at **`dvt://skill/spec-authoring`**. Because dvt Gallery keeps its engine

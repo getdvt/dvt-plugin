@@ -43,7 +43,7 @@ commands/connect.md          /dvt:connect — first-run setup + verify
 commands/dvt-review.md       /dvt:dvt-review — narrative + layout critique (pre-apply spec or built dashboard)
 agents/dvt-narrative-critic.md   fresh-read critic: analytical story (answer-first, spine, key message)
 agents/dvt-layout-critic.md      fresh-read critic: layout craft (Gestalt/Tufte/Few) + deterministic lints
-skills/dvt-spec-author/      vendored dvt dashboard-spec authoring skill
+skills/dvt-spec-author/      dvt dashboard-spec authoring skill (generated at publish time)
 ```
 
 The two critic agents carry dvt's design opinion (the narrative + layout rubric), kept roughly in
@@ -51,11 +51,9 @@ sync with dvt's own design-review rubric. They critique the **spec** (cheap, pre
 given a built dashboard id — the **actual rendered pages**, fetched as pre-signed artifact URLs and
 viewed from a temp file so no base64 image bytes ever land in context.
 
-`skills/dvt-spec-author/SKILL.md` is vendored byte-for-byte from the canonical copy in the dvt repo
-(`web/public/dvt-spec-authoring-skill.md`); don't hand-edit it. Re-sync it with
-[`scripts/sync-from-dvt.sh`](../../scripts/sync-from-dvt.sh); CI
-([`skill-drift.yml`](../../.github/workflows/skill-drift.yml)) fails if the vendored copy drifts from
-the canonical one deployed at demo.dvt.dev.
+`skills/dvt-spec-author/SKILL.md` has a single canonical source in the private dvt repo
+(`web/public/dvt-spec-authoring-skill.md`) and is generated into this tree when the plugin is
+published, so the shipped copy cannot drift from canonical. Edit it there, not here.
 
 ## Advanced / manual setup
 

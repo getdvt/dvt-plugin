@@ -61,22 +61,26 @@ plugins/dvt/
   commands/dvt-review.md        /dvt:dvt-review — critique a spec or a built dashboard, GO / REVISE
   agents/dvt-layout-critic.md   layout, visual design, readability — PASS / NEEDS ATTENTION / SIGNIFICANT ISSUES
   agents/dvt-narrative-critic.md  analytical story coherence — COHERENT / PARTIALLY COHERENT / INCOHERENT
-  skills/dvt-spec-author/       vendored dvt dashboard-spec authoring skill
+  skills/dvt-spec-author/       dvt dashboard-spec authoring skill (generated at publish time)
   icon.svg
   README.md
   SETUP.md                      connecting from Cowork (GUI-only environments)
-scripts/sync-from-dvt.sh        re-sync the vendored skill from canonical getdvt/dvt
 .github/workflows/
-  skill-drift.yml               fails if the vendored skill diverges from canonical
-  plugin-validate.yml           manifest + structure validation
-  plugin-release.yml            version + tag automation
+  plugin-release.yml            tags each published version v<semver>
 RELEASING.md                    version + tag convention (semver in plugin.json)
 LICENSE                         Apache-2.0
 ```
 
-The bundled spec-authoring skill is vendored byte-for-byte from canonical `getdvt/dvt`. Re-sync it
-with `./scripts/sync-from-dvt.sh`; a drift CI check (`.github/workflows/skill-drift.yml`) fails if the
-vendored copy diverges from the canonical one deployed at demo.dvt.dev.
+> **This repo is publish-only — do not send pull requests here.** Every file above is rendered from
+> `plugins/**` in the private `getdvt/dvt` repo and pushed by the `dvt-publisher` GitHub App, so a
+> commit made directly to this repo is overwritten by the next publish. Issues and discussions are
+> closed for the same reason. To propose a change, talk to us at [dvt.dev](https://dvt.dev). Security
+> reports go to `security@dvt.dev` (also `dvt.dev/.well-known/security.txt`), or via GitHub private
+> vulnerability reporting on this repo.
+
+The bundled spec-authoring skill has a single canonical source in `getdvt/dvt`
+(`web/public/dvt-spec-authoring-skill.md`) and is generated into the tree at publish time, so the
+published copy cannot drift from it.
 
 Maintainers: see [RELEASING.md](./RELEASING.md) for the version + tag flow.
 

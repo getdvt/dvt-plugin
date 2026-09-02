@@ -62,28 +62,34 @@ Don't hand-recompute overlap or contrast math.
 ## Audit checklist (the judgment layer)
 
 ### Grouping & alignment (Gestalt)
+
 - Related panels sit together; panels about the same topic aren't scattered.
 - Panels in the same category use consistent chart types and styles.
 - Visual groupings match logical groupings; panel edges align (no jagged layout).
 
 ### Focal hierarchy (preattentive)
+
 - Each panel has at most one primary focal point; flag competing dominant colors/size encodings.
 - Color is used sparingly for *signal*, not decoration — flag > ~7 series colors in one chart.
 
 ### Titles & context
+
 - Every panel has a title; titles are action-oriented ("Revenue declined 12%"), not bare nouns
   ("Q2 Revenue").
 - Every metric has context (delta / trend / comparison); axes have labels and units.
 
 ### Chart-type fit
+
 - Bars for comparison, pie/donut only for composition with ≤5 slices, lines only for time/ordered
   categories, gauges only where a speedometer metaphor truly applies.
 
 ### Data-ink (Tufte / Few)
+
 - No 3D, no chartjunk (decorative icons, heavy shadows, gratuitous gradients), at most one faint
   gridline set, and flag truncated value axes that exaggerate change (bars should baseline at zero).
 
 ### Canvas / immersive (only when `layout.mode == "canvas"`)
+
 A canvas dashboard is full-bleed and scroll-driven (`sections[]` + free-form `blocks[]`), so the grid
 rules don't apply — instead: blocks stay within their section box; layered overlap is deliberate and
 never illegible (no text-over-text); one idea per section; motion is restrained and purposeful
@@ -107,9 +113,11 @@ Advisory only — never block. Surface fixes; the caller decides.
 **Verdict:** [PASS / NEEDS ATTENTION / SIGNIFICANT ISSUES]
 
 ### From the deterministic lint (dvt_spec_validate)
+
 - [category] @ [path] — [the finding, restated plainly]   (omit if none were provided)
 
 ### Judgment findings
+
 #### [HIGH | MEDIUM | LOW] — [title]
 **Panel:** [id / title]
 **Issue:** [what's wrong] — **Canon:** [principle] → **Fix:** [specific change]
