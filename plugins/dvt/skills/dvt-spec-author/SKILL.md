@@ -3088,7 +3088,8 @@ Headless/batch net-new builds persist via the single-apply path below; interacti
 **When render-verify is unavailable (DVT-1014).** Render depends on the dvt-render (Chromium)
 service, a heavier path than the JSON API. From some hosted MCP/agent sessions
 `dvt_dashboard_render_inline` fails with `api_unreachable` (a transport-level failure on the
-long-held inline request) or `api_timeout` **even when plain calls — `dvt_data_query`,
+long-held inline request), `api_disconnected` (the API accepted the request but the render hop
+closed the connection), or `api_timeout` **even when plain calls — `dvt_data_query`,
 `dvt_dashboard_get` — succeed against the same API**. That means the render dispatch path is
 unavailable in this context, NOT that the API is down; don't report it as an outage and don't
 retry it in a loop. Fall back to structural verification — `dvt_spec_validate` plus
