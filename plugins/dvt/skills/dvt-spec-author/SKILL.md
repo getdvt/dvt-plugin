@@ -179,7 +179,7 @@ The full staged walk-through, with the rubric for each stage, is **Design flow**
 <!-- END generated chart-type table -->
 | `metric-strip` | Row of KPI metric tiles | `metrics[]` (see below); each metric accepts `description` (optional hover tooltip) |
 | `kpi` | Single-value scorecard (one headline number + comparison + sparkline) | `valueField` (required), `agg`, `format`, `label`, `caption`, `description` (optional hover tooltip), `comparison{…}`, `sparkline{…}` (see below) |
-| `table` | Data table (dvt-native, portable) | `columns[]` — each `{ field, label?, format?, align?, sortable?, filterable? }`; omit for every query column in result order. `defaultSort{ field, direction }` seeds an initial sort; click-to-sort + per-column filter run client-side over the fetched rows (`sortable`/`filterable` default true). Row order follows the query `ORDER BY` unless `defaultSort` overrides it; `format` uses the shared format objects. `grouping{ groupBy[], aggregations[]{field,agg}, subtotals?, grandTotal?, defaultExpanded? }` collapses rows into a grouped tree with subtotal/grand-total rows — computed client-side over the fetched rows (no re-query, no SQL rewrite), `groupBy` order = nesting levels, `agg` ∈ sum/avg/min/max/count (default sum). `pivot{…}` switches the panel to cross-tab mode (see Rich tables → Pivot); pivot panels also show a viewer-facing `Fields` tray that quick-swaps pivot rows/columns/values as ephemeral view state — parallel to client-side sort/filter, never persisted (DVT-897) |
+| `table` | Data table (dvt-native, portable) | `columns[]` — each `{ field, label?, format?, align?, sortable?, filterable? }` (`label` is the header-text key — there is no `header`); omit for every query column in result order. `defaultSort{ field, direction }` seeds an initial sort; click-to-sort + per-column filter run client-side over the fetched rows (`sortable`/`filterable` default true). Row order follows the query `ORDER BY` unless `defaultSort` overrides it; `format` uses the shared format objects. `grouping{ groupBy[], aggregations[]{field,agg}, subtotals?, grandTotal?, defaultExpanded? }` collapses rows into a grouped tree with subtotal/grand-total rows — computed client-side over the fetched rows (no re-query, no SQL rewrite), `groupBy` order = nesting levels, `agg` ∈ sum/avg/min/max/count (default sum). `pivot{…}` switches the panel to cross-tab mode (see Rich tables → Pivot); pivot panels also show a viewer-facing `Fields` tray that quick-swaps pivot rows/columns/values as ephemeral view state — parallel to client-side sort/filter, never persisted (DVT-897) |
 | `text` | Markdown narrative | `markdown`, `variant` (`plain`\|`callout`), `align` |
 | `html` | Sanitized HTML/CSS escape hatch | `html` (see below) |
 | `stat` | Big-number tile (hero-scale single value) | `valueField` (required), `agg`, `format`, `label`, `caption`, `description` (optional hover tooltip), `delta`, `sparkline`, `align` (see below) |
@@ -2400,7 +2400,7 @@ id — the same referential-integrity discipline as grid `items[].i` and canvas
 ## Page rhythm — gap, padding, maxWidth, align
 
 Four `layout` fields (Lane-1) control the page's spacing and width, on top of the grid
-itself: **`gap`** (`{ x, y }` px, inter-tile gutter), **`padding`** (px, an integer for all
+itself: **`gap`** (`{ x, y }` px object — a bare number is rejected — inter-tile gutter), **`padding`** (px, an integer for all
 sides or `{ top, right, bottom, left }`), **`maxWidth`** (px, or `"none"` for
 unconstrained), and **`align`** (`"left"`|`"center"`|`"right"`, or `{ preset?, x?, offset? }`
 for a raw position plus a pixel nudge). Three of the four have an ambient theme-token
@@ -2440,7 +2440,11 @@ defaults.
 Tokens are a 3-tier tree (`primitive` → `semantic` → `component`). Any value may be
 a literal (`"#4F46E5"`) or a reference (`"{color.brand-indigo}"`) — with one exception:
 the **font-family** slots below are a *closed allow-set*, not free text (see
-`typography.fontFamily`). Change one primitive and every chart updates. Useful tokens:
+`typography.fontFamily`). Change one primitive and every chart updates.
+**Every token value is a string** — numeric ones included: write `"panel.border.width": "3"` (or
+`"3px"`), never `3`. A bare number or boolean anywhere under `theme.tokens.*`, `theme.overrides`,
+`pages[].theme.overrides`, or a panel `overrides` block fails validation (the error now says so).
+Useful tokens:
 
 - `chart.series.1..6` — the series palette (drives chart colors automatically)
 - `chart.axis.label.color`, `chart.grid.line.color`, `chart.axis.line.color` — chart chrome (retint these on dark surfaces)
@@ -2468,7 +2472,10 @@ DVT-2376 a page carries its own `theme: { preset?, overrides? }`, so an entire p
 switches mood in one place: `"theme": {"preset": "exec-dark"}`, or an explicit
 `"theme": {"overrides": {"panel.background": "#1E293B", "text.primary": "#E8EEF5"}}`
 (worked example below). Reach for a shared dark `overrides` block on each card only
-when you genuinely want *some* cards dark, not the page.
+when you genuinely want *some* cards dark, not the page. Note the shape: `pages[].theme` is
+`{ preset?, overrides? }` **only** — it has no `tokens`; the three tiers live solely on the root
+`theme.tokens`, and a page `theme` carrying `tokens` is rejected as an unknown property (the
+mirror-image of a root `theme` missing `tokens`).
 
 ### Dashboard-scoped overrides — `theme.overrides` (DVT-1006/1008, ADR-0014 Amendment 4)
 
@@ -3077,7 +3084,7 @@ Design and preview are unchanged: finish the staged design pass (§4a), assemble
 **Interactive sessions (a user is watching): persist incrementally.**
 
 1. **Shell first.** Apply a minimal shell — `meta` + `theme` + the first page with `panels: []` (valid: `panels` has no minimum) — without `preview`. The dashboard now exists in the Builder within seconds; tell the user to open it and watch it grow.
-2. **Panel by panel.** `dvt_element_create` each panel (~1–2KB each), narrating as you go ("page 1/3: panel 4/6 — revenue trend"). **Always pass an explicit, stable `slug`** derived from the panel's title/id in the design (e.g. `revenue-trend`) — never leave it empty. An empty slug is regenerated fresh on every call, so a lost-response retry after a create that actually landed will duplicate the panel; an explicit slug makes the create idempotent (see step 4). Pass the optional per-breakpoint `layout` param when your design carries responsive (md/sm) geometry; flat x/y/w/h is fine otherwise. Create later pages with `dvt_page_create` as you reach them; fix ordering at the end with `dvt_pages_reorder`.
+2. **Panel by panel.** `dvt_element_create` each panel (~1–2KB each), narrating as you go ("page 1/3: panel 4/6 — revenue trend"). **Always pass an explicit, stable `slug`** derived from the panel's title/id in the design (e.g. `revenue-trend`) — never leave it empty. An empty slug is regenerated fresh on every call, so a lost-response retry after a create that actually landed will duplicate the panel; an explicit slug makes the create idempotent (see step 4). Pass the optional per-breakpoint `layout` param when your design carries responsive (md/sm) geometry; flat x/y/w/h is fine otherwise. An interactive panel is ONE call: pass `on_click` (a single bare action — filter | drill | openOverlay), `context_menu`, `subtitle` (and `drill` / `brush` if the design uses them) directly on `dvt_element_create` — they are the rest of the Panel envelope and are validated against the same Panel schema `dvt_element_patch` enforces at `/onClick`, `/contextMenu`, `/subtitle`, `/drill`, `/brush` — instead of creating and then patching. `dvt_element_get` echoes them back, so a read-after-write shows the wiring. Create later pages with `dvt_page_create` as you reach them; fix ordering at the end with `dvt_pages_reorder`.
 3. **Render checkpoint per page — never per panel.** `dvt_dashboard_render_inline` after each page completes. The render budget is 10/hour per org; a per-panel cadence will exhaust it mid-build.
 4. **If one element fails,** surface the server's Problem `detail`/`suggestion` verbatim and retry that one element — the retry re-sends 1–2KB, not the whole spec. This retry is safe **because** step 2's explicit slug makes it idempotent: if the original create actually landed and only the response was lost, the retry gets a 409 slug-taken — treat that as success (the panel is already there) and move on, don't error out or duplicate it. A briefly incomplete dashboard is expected here; the user is watching it assemble.
 5. **Final integrity pass.** Run `dvt_spec_validate` on the full spec you assembled and applied (already in context — no need to re-fetch it) and surface any remaining `collision`, `data-binding`, `interaction-stranding`, and provenance warnings to the user. (`dvt_dashboard_check_overlap` is the pre-build duplicate-content search from the Authoring method's step-1 data audit — not an integrity check; don't re-run it here.) Then `dvt_dashboard_get(format="concise")` the persisted dashboard for its `layoutSummary` — the final, ground-truth layout (built page-by-page, so it may differ from what you narrated mid-build) — this is what becomes the closing table (§5).
