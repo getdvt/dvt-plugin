@@ -244,20 +244,27 @@ secretless, caller's-rights source named `Host Snowflake`; set `data.sourceId:
 "Host Snowflake"` for a panel's query to run against the caller's own Snowflake
 account — otherwise the panel never fires a query.
 
-**`Host Snowflake` cannot query shared databases.** Its caller's-rights sessions
-can only reach objects the app owner has pre-delegated with CALLER grants, and
-Snowflake forbids CALLER grants on shared (imported) objects — so
-`SNOWFLAKE.ACCOUNT_USAGE`, `SNOWFLAKE_SAMPLE_DATA`, and any Marketplace/data-share
-import will ALWAYS fail (never author panels directly against them). Wrap the
-shared data in an owned table, view, or model first (e.g. `CREATE VIEW
-my_db.my_schema.v AS SELECT ... FROM SNOWFLAKE.ACCOUNT_USAGE....`) and point the
-panel's query at that owned object. Owned databases additionally need CALLER grants to
-the APPLICATION — set up once per database (not per object): `GRANT CALLER USAGE ON
-DATABASE <db> TO APPLICATION <app>; GRANT INHERITED CALLER USAGE ON ALL SCHEMAS IN
-DATABASE <db> TO APPLICATION <app>; GRANT INHERITED CALLER SELECT ON ALL TABLES IN
-DATABASE <db> TO APPLICATION <app>; GRANT INHERITED CALLER SELECT ON ALL VIEWS IN
-DATABASE <db> TO APPLICATION <app>;`. `INHERITED CALLER` cascades by containment, so
-this also covers schemas/tables/views created later — no re-grant needed.
+**`Host Snowflake` cannot query shared databases.** Its caller's-rights sessions can
+only reach objects the app owner has pre-delegated with CALLER grants, and Snowflake
+forbids CALLER grants on shared (imported) objects — so `SNOWFLAKE.ACCOUNT_USAGE`,
+`SNOWFLAKE_SAMPLE_DATA`, and any Marketplace/data-share import will ALWAYS fail (never
+author panels directly against them). Wrap the shared data in an owned table, view, or
+model first (e.g. `CREATE VIEW my_db.my_schema.v AS SELECT ... FROM
+SNOWFLAKE.ACCOUNT_USAGE....`) and point the panel's query at that owned object. Owned
+databases additionally need the APPLICATION CALLER-granted, once per database (not per
+object). An admin with ACCOUNTADMIN or MANAGE CALLER GRANTS does that in Snowsight
+(Catalog » Apps » the app » Settings » Privileges » **Restricted caller's rights**):
+pick the database as scope, then select the database and the schema, table and view
+object types — not the database alone. Snowsight only grants USAGE on the types you
+select, so the database alone leaves database-level USAGE and panels still fail; pick
+SELECT for tables and views. If that section is absent (it is a Snowflake preview) or
+a panel still reports a CALLER gap on a database, schema, table or view afterwards,
+fall back to SQL: `GRANT CALLER USAGE ON DATABASE <db> TO APPLICATION
+<app>; GRANT INHERITED CALLER USAGE ON ALL SCHEMAS IN DATABASE <db> TO APPLICATION
+<app>; GRANT INHERITED CALLER SELECT ON ALL TABLES IN DATABASE <db> TO APPLICATION
+<app>; GRANT INHERITED CALLER SELECT ON ALL VIEWS IN DATABASE <db> TO APPLICATION
+<app>;`. `INHERITED CALLER` cascades by containment, so this also covers
+schemas/tables/views created later — no re-grant needed.
 
 **Canonical cartesian form — author the measure as `series[].dataField`.** For the plain
 value families (`chart:bar`/`chart:line`/`chart:area`), the single authored form used by
@@ -3338,9 +3345,16 @@ view, or model first and query that:
 create view my_db.my_schema.v as select ... from snowflake.account_usage....
 ```
 
-Owned objects additionally need a CALLER grant to the APPLICATION — granted **once
-per database** (not per object); `INHERITED CALLER` on the `ON ALL` form cascades by
-containment, covering schemas/tables/views created later too:
+Owned objects additionally need a CALLER grant to the APPLICATION, granted **once per
+database** (not per object). An admin with ACCOUNTADMIN or MANAGE CALLER GRANTS does
+this in Snowsight first (Catalog » Apps » the app » Settings » Privileges » **Restricted
+caller's rights**): pick the database as scope, then select the database and the
+schema, table and view object types — not the database alone, which only grants
+database-level USAGE and leaves panels failing. SQL fallback, for accounts where that
+section is absent (it is a Snowflake preview) or a panel still reports a CALLER gap on
+a database, schema, table or view — `INHERITED
+CALLER` on the `ON ALL` form cascades by containment, covering schemas/tables/views
+created later too:
 
 ```sql
 grant caller usage on database <db> to application <app>;
