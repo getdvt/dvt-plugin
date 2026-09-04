@@ -1550,7 +1550,7 @@ The `data.params` default for `searchParam` (`"q": "%%"` in the example) is the 
 the pyformat binding parses a bare `%` as the start of a `%(name)s` placeholder — and prefer
 `mod()` over the `%` operator to sidestep the escaping entirely. This `%%`→`%` collapse applies
 only to query *text*, never to a bound parameter *value*: don't double-percent a real term;
-`"50%%"` as a *value* would bind `50` followed by anything, not a literal `50%`.
+`"50%%"` as a *value* would bind `50` followed by anything, not a literal `50%`. Enforced since DVT-3702: `dvt_spec_validate` flags a bare `%` in a param-bound query (data-binding warning), and on Snowflake and Postgres-family connections the engine refuses it before execute with error code `literal-percent` (BigQuery/DuckDB pass a bare `%` through, but `%%` is portable — always write it).
 
 `valueType`: `string` (default) | `number` | `date` | `boolean`. `targets`: `"all"`
 (default — every panel on the page that declares the key) or an explicit `["panelId", …]`;
