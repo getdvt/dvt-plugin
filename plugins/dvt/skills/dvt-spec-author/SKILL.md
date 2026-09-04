@@ -744,6 +744,21 @@ tray (no separate AI path):
 
 ---
 
+#### Freeze leading columns — `TableSpec.frozenColumns` (DVT-3837)
+
+Column headers are always pinned to the top of the table's scroll area. To also keep the first N
+columns in view while a wide table scrolls sideways (spreadsheet freeze panes), set
+`frozenColumns` on the table spec:
+
+```json
+{ "type": "table", "spec": { "columns": [{ "field": "customer" }, { "field": "jan" }, { "field": "feb" }], "frozenColumns": 1 } }
+```
+
+Integer 0–20, counted in rendered order (pivot: `1` pins the first row-dimension stub). Pure
+view-time layout — no data transform. `columnGroups` spanner rows are not pinned.
+
+---
+
 #### Conditional formatting (DVT-509, ADR-0044 §3)
 
 `TableSpec.conditionalFormat[]` sets **table-wide** rules (can target any column or
