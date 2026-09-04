@@ -1546,6 +1546,18 @@ compact stepper. Fields: `measureField` (required), `n` (default 10),
 
 The `data.params` default for `searchParam` (`"q": "%%"` in the example) is the initial load value — bound as the literal two-character string `%%`, which under `LIKE … ESCAPE '!'` is two wildcards (neither `!`-escaped), so the unfiltered first open matches every row. Omitting `searchParam` from the query or `data.params`, or omitting the `ESCAPE '!'` clause, makes the server return the full unfiltered list or nothing, silently. In particular, an initial value of `""` matches only the empty string, so the control opens with zero options and looks broken — use a match-all default like `%%`.
 
+**Cascading filters (DVT-539).** No new spec field — a parent filter narrows a child filter's own *option list* the same way it narrows any other target: list the child's id in the parent's `targets`, and have the child's value-source query bind the parent's param by name with a guarded fall-through:
+
+```json
+{ "id": "customer-filter", "type": "filter",
+  "data": { "sourceId": "db",
+            "query": "SELECT DISTINCT customer FROM demo.public.orders WHERE (region = %(region)s OR %(region)s IS NULL) ORDER BY 1",
+            "params": { "region": null } },
+  "spec": { "param": "customer", "valueField": "customer", "targets": "all" } }
+```
+
+The parent's `targets` list (or `"all"`) includes `customer-filter`'s id. Filter panels receive merged params like any other panel, so the child re-queries on every parent change; an unset parent binds NULL and `OR %(region)s IS NULL` falls through to the full list. Chains work (state → county → zip). A committed child selection that drops out of the narrowed, query-sourced list is cleared automatically (multiselect is pruned) and removed from the URL; this never applies to a static `spec.values` list, a `searchMode:"server"` filter (its selected value is kept — DVT-540 pins it as a row for multiselect; single-select keeps it on the trigger — a parent change resets the cached search so the next keystroke re-queries), a `required` filter, a row-capped (truncated) result, or a static render. Lint flags a filter whose own `data.params` binds its own `param` (self-narrowing — `dvt_spec_validate` warning) — bind a different filter's param instead. Backend-free / baked `data.rows` filters never cascade. A multiselect parent with `unsetMode:"null"` needs the DVT-1209 parenthesized form `(col IN %(k)s)` on the child's value-source query, which the existing lint already checks. Golden example: `spec/examples/filter-cascading.json`.
+
 **The `%%` rule.** In ANY param-bound query, a literal `%` in the SQL text must be written `%%` —
 the pyformat binding parses a bare `%` as the start of a `%(name)s` placeholder — and prefer
 `mod()` over the `%` operator to sidestep the escaping entirely. This `%%`→`%` collapse applies
@@ -2514,7 +2526,10 @@ mirror-image of a root `theme` missing `tokens`).
   `theme.overrides` key (or panel `overrides` key) wins over hand-authored raw-ECharts detail for
   the same visual property — key **presence** is the signal, not which tier it lives in. Today's
   forced sinks are narrow and explicit:
-  - `chart.series.N` → that series' `itemStyle.color` (bar/line/scatter)
+  - `chart.series.N` → `itemStyle.color` for bar/line/scatter; for any series compiling to
+    ECharts `type: 'line'` (`chart:line*`/`chart:area*`, plus an explicitly typed line
+    series in a combo panel) also `lineStyle.color` and `areaStyle.color` when the series
+    carries an `areaStyle`; sankey/graph excluded (their `lineStyle` colours links)
   - `text.primary` → the chart's `textStyle.color`
   - `typography.fontSize.base` → the chart's `textStyle.fontSize`
   Everything else still wins through ordinary token resolution — no forced series/textStyle
