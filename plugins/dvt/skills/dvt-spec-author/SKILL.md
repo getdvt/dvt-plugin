@@ -1935,6 +1935,22 @@ secondary actions (copy, export, multi-action menus) or a source that needs seve
 User-facing disclosure copy always says "Click…", never "Right-click…", even on a panel whose
 only wired action lives behind `contextMenu`.
 
+**The one exception — a named column (DVT-4165).** A `table`'s `onClick` is row-scoped by default:
+the click fires from ANY cell in the row. If the user names a column ("clicking *move-ins* should
+open the detail"), set `onClick.column` to that `columns[].field` — the mouse click then fires only
+from that column's cells, and only those cells show the clickable cursor/label. Everything else is
+unchanged: the bound datum is still the whole ROW (so `valueFrom` still names any row field, not
+necessarily the gated column), and keyboard activation of the focused row still fires the action
+regardless of column, because the row owns the tab stop. `column` is table-only — the schema
+rejects it on every other panel type — and it must name a column the table actually RENDERS. If it
+resolves to none, the panel's whole click surface closes: no clickable cells, no row tab stops, and
+no keyboard-menu entry either (a partial failure would leave a keyboard-only path to an action no
+cell would fire). The trap to watch is a **pivot** table — its measure columns are generated from
+the data, so only a `pivot.rows` field can be named there, never a `spec.columns[]` measure.
+`dvt_spec_validate` warns in both cases whenever the column set is knowable at author time. Omit
+`column` unless the user actually scoped the drill to a column: a whole-row click is the friendlier
+default.
+
 Until DVT-3040 lands, the Actionability rule above applies identically to `contextMenu` — a
 row-field `valueFrom`/`when.field` is just as unreliable there (measured live on FCC 2026-08-28: a
 custom right-click action on a scatter never appears in the menu, only the built-in entries):
@@ -2061,6 +2077,26 @@ for tables). `valueType` — as above.
 
 A column-level `contextMenu` on a `table` column **merges below** the panel-level menu
 (panel actions first, then that column's actions).
+
+The left-click counterpart is `onClick.column` (DVT-4165) — one action, scoped to one column's
+cells rather than to the whole row:
+
+```json
+{ "id": "prime-pl", "type": "table", "title": "Prime Storage P&L",
+  "data": { "sourceId": "db", "query": "SELECT facility, facility_id, move_ins, revenue FROM demo.public.pl" },
+  "spec": { "columns": [{ "field": "facility" }, { "field": "move_ins" }, { "field": "revenue" }] },
+  "onClick": { "type": "drill", "label": "Move-ins for {facility}", "targetPage": "move-ins-detail",
+    "param": "facility_id", "valueFrom": "facility_id", "valueType": "string",
+    "column": "move_ins" } }
+// Only the move_ins cells are clickable and disclose the label; the bound value is still read from
+// the whole row (facility_id, a column the table doesn't even display). Enter/Space on the focused
+// row still fires — the row, not the cell, owns the tab stop.
+```
+
+Drop `column` and every cell in the row fires the same action — that is the default, and the right
+choice unless the user scoped the drill to a particular column. A `column` naming something the
+table does not render (a typo, or a measure on a pivot) is not a partial degradation — it closes
+every click surface the panel has, keyboard menu included, and `dvt_spec_validate` says so.
 
 ### Exploration patterns — composing interactivity into a story
 
