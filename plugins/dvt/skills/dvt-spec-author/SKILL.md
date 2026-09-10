@@ -192,7 +192,7 @@ The full staged walk-through, with the rubric for each stage, is **Design flow**
 | `container` | Tabbed container — one page region holding several panel sets behind tabs (layout primitive, not a chart) | `spec.layout: "tabs"` (required), `tabs[]` (required) each `{ id, label, panels:[childId…], layout }`, `defaultTab?`. **Children stay real elements in `panels[]`** referenced by id (never inlined); each tab carries its own mini 24-col `layout`, and the container itself occupies one cell in the page grid. Children are NOT in the page grid. Single level only (no tabs-in-tabs). NOT the same as page-level tabs (`pages[]`+`tabBar`). The semantic validator rejects missing refs / a child placed twice / a child also in the page grid / nesting / a bad `defaultTab` / a tab id that collides with a panel id |
 | `agent` | Interactive block hosting a live conversational thread with a registered Cortex agent (DVT-3562, ADR-0082 W2) | `agent?` (optional `database.schema.agent` FQN of the Cortex agent this panel talks to — unset shows an explicit "no agent configured" state, never a silent no-op or a guessed default). Deliberately minimal: no `data` block (a turn is a Cortex agent run, not a warehouse query, and never enters the query-result cache) and no per-user/thread state — a conversation is per-viewer browser state only, never written into the spec or a stored revision. Interactive-only: a headless/static render shows a placeholder in place of the chat surface |
 
-Any panel can also carry a `contextMenu` object (right-click action menu — filter/drill/link/copy/export/openOverlay) and/or a `drill` object (retained for back-compat, inert on its own — DVT-555; wire drill navigation via `onClick` or a `contextMenu` action instead). `onClick` (a single, disclosed left-click action — filter/drill/openOverlay) is narrower: a property on every panel type that resolves a clicked datum (every `chart:*` type, plus `table`/`kpi`/`stat`/`metric-strip`) — but `chart:line:racing` is inert at runtime (no affordance, no dispatch; DVT-3041); the schema rejects it on `filter`, `filter-bar`, `container`, `divider`, `section`, `text`, `html`, `hero`, `media`, `agent`, which surface no clicked datum. See **Filters & drill-downs** for the full field reference and the post-DVT-2722 actionability rule (which surfaces need a row-field `valueFrom` vs. `category`/`value`/`seriesName`).
+Any panel can also carry a `contextMenu` object (right-click action menu — filter/drill/link/copy/export/openOverlay) and/or a `drill` object (retained for back-compat, inert on its own — DVT-555; wire drill navigation via `onClick` or a `contextMenu` action instead). `onClick` (a single, disclosed left-click action — filter/drill/openOverlay) is narrower: a property on every panel type that resolves a clicked datum (every `chart:*` type, plus `table`/`kpi`/`stat`/`metric-strip`) — but `chart:line:racing` is inert at runtime (no affordance, no dispatch; DVT-3041); the schema rejects it on `filter`, `filter-bar`, `container`, `divider`, `section`, `text`, `html`, `hero`, `media`, `agent`, which surface no clicked datum. See **Filters & drill-downs** for the full field reference and the post-DVT-2722 actionability rule (which surfaces need a row-field `valueFrom` vs. `category`/`value`/`seriesName` vs. — on `table`, `column`/`columnLabel`, gated for keyboard by `onClick.column`, DVT-4205).
 
 ### ⚠️ Chart spec — critical: do NOT use Vega-lite encoding syntax
 
@@ -1902,13 +1902,21 @@ which `valueFrom`/`when.field` actually fires:
   (`category`/`value`/`seriesName`) or an **absent** `valueFrom` (default `category`) is never
   actionable there and shows **no affordance**. On `table` the mouse target is a data cell, but the
   bound datum is the whole **ROW** — `when` narrowing, keyboard focus, and dispatch are all per data
-  row, one tab stop per actionable row (Enter/Space activates).
+  row, one tab stop per actionable row (Enter/Space activates). **Exception (DVT-4205):** on
+  `table` only, `valueFrom: "column"` / `valueFrom: "columnLabel"` ARE actionable — the table's
+  mouse-click equivalent of a chart's `category` — carried by a **MOUSE** cell click or a
+  column/panel `contextMenu` click, and by keyboard row activation (Enter/Space) only when
+  `onClick.column` is authored and resolves to a rendered column (that gated column is the one
+  bound); otherwise a `bindings[]` entry using either token has **no row tab stop** (no keyboard
+  affordance without dispatch), and its keyboard-menu entry renders **disabled** in every case.
 - `kpi`/`stat`/`metric-strip` additionally bind from **`rows[0]` only** — a field present on
   another row but absent from `rows[0]` never satisfies a `when`/binding on those three.
 - The rule applies **per `bindings` entry and all-or-nothing**: on `table`/`kpi`/`stat`/`metric-strip`
   every entry's `valueFrom` must name a real row field — a single entry using a click-only token, or
   omitting `valueFrom` (default `category`), makes the whole action unactionable and withholds the
-  affordance.
+  affordance. On `table`, `column`/`columnLabel` count as actionable tokens for this rule
+  (DVT-4205) — a `bindings[]` entry may use either alongside row-field entries — but see above:
+  mixing one in still gates the whole action's keyboard affordance per that rule.
 
 Use `when: { field }` to narrow **which datums** are clickable (never as an affordance opt-out on a
 datum that IS clickable). Shares the exact same field vocabulary as the matching `contextMenu` action
@@ -1951,6 +1959,34 @@ the data, so only a `pivot.rows` field can be named there, never a `spec.columns
 `column` unless the user actually scoped the drill to a column: a whole-row click is the friendlier
 default.
 
+**Binding the clicked column (DVT-4205).** `onClick.column` (above) **gates** which cells are
+clickable; `valueFrom: "column"` / `valueFrom: "columnLabel"` **binds** which column fired — the
+table's mouse-click equivalent of a chart's `category`/`seriesName`. They resolve to the clicked
+cell's `columns[].field` (`column`) or its rendered header text (`columnLabel`), work in
+`onClick`/`contextMenu` `param`/`bindings[].valueFrom`/`when.field`, and are also usable as
+`{column}`/`{columnLabel}` template tokens in `label` and `link.url`. Reach for the **gate**
+(`column`) when only one column should ever be clickable at all — a fixed target, same action
+every time. Reach for the **bind** (`column`/`columnLabel`) when *which* column was clicked
+changes the action's behavior — most often a **SQL-pivoted table with auto columns** (a raw SQL
+`PIVOT`/`CASE` cross-tab, so `columns[]` is omitted and the columns are whatever the query
+returns), where nothing in the spec can name the generated columns ahead of time. **Not yet
+supported on a dvt-native `pivot:` table** (`TableSpec.pivot`, "Rich tables — pivot" above) — its
+rendered columns are composed at render time from the row × column dimension cross, and binding
+into that composition is a follow-up (`dvt_spec_validate` flags a `column`/`columnLabel`
+`valueFrom`/`bindings[]`/`when.field` on a `pivot:` table so this isn't a silent no-op); bind a
+real `pivot.rows` field there instead, or reach for a SQL pivot with auto columns if the click
+needs to carry the generated column. The gate and bind tokens do compose on the SQL-pivot /
+auto-columns shape: gate to a subset of columns with `onClick.column` while still binding which
+one fired with `valueFrom: "column"` — though on a fixed, declared column set, gating to one
+column and then binding from it is usually redundant with just reading that column's field
+directly. Unlike `onClick.column`, neither token requires `columns[]` to exist — they read the
+actually-rendered column, generated or explicit. Both are **table-only** (the schema rejects them
+elsewhere) and fire on a **mouse** cell click or a column/panel `contextMenu` click, plus keyboard
+row activation (Enter/Space) when `onClick.column` resolves to a rendered column; otherwise an
+action bound to either token has no row tab stop, and its keyboard-menu entry always renders
+disabled (see the Actionability rule above). See the SQL-pivot example below (under
+`onClick.column`).
+
 Until DVT-3040 lands, the Actionability rule above applies identically to `contextMenu` — a
 row-field `valueFrom`/`when.field` is just as unreliable there (measured live on FCC 2026-08-28: a
 custom right-click action on a scatter never appears in the menu, only the built-in entries):
@@ -1986,7 +2022,9 @@ instead (see the `drill` rule below). `targetPage` (required) — a `pages[].id`
 (required unless using `bindings[]` for a compound key, see below) — the params key set
 on the target page's panels. `valueFrom`: `category`
 (default) | `value` | `seriesName` | a field name from the clicked row (use a field name
-for tables). `valueType` — as above.
+for tables) | — `column` / `columnLabel` (DVT-4205; the table's clicked column field / rendered
+header label — mouse cell click or `contextMenu`, plus keyboard row activation only when
+`onClick.column` resolves). `valueType` — as above.
 
 ```json
 { "id": "rev-by-region", "type": "chart:bar", "title": "Revenue by Region",
@@ -2010,7 +2048,9 @@ for tables). `valueType` — as above.
   with an account id).
 - **`{token}` templates** in `label` (and `link.url`): `{category}`, `{value}`,
   `{seriesName}`, and `{<field>}` for any field of the clicked row. On **tables** every
-  field works. On **charts**, `{category}`/`{value}`/`{seriesName}` always work; arbitrary
+  field works, and — DVT-4205, gated per the Exception above — so do `{column}` (the clicked
+  column's field) and `{columnLabel}` (its rendered header label), e.g. `"Show tenants behind
+  {columnLabel}"`. On **charts**, `{category}`/`{value}`/`{seriesName}` always work; arbitrary
   `{<field>}` / `valueFrom:<field>` resolve the clicked mark's source row on row-per-mark
   charts (bar, line, area) — unless the family carries `colorRules` (see the Actionability
   rule) — see the onClick Actionability rule above for the full DVT-3040
@@ -2098,6 +2138,28 @@ choice unless the user scoped the drill to a particular column. A `column` namin
 table does not render (a typo, or a measure on a pivot) is not a partial degradation — it closes
 every click surface the panel has, keyboard menu included, and `dvt_spec_validate` says so.
 
+`onClick.column` gates; `valueFrom: "column"` / `valueFrom: "columnLabel"` (DVT-4205) binds which
+column fired — the case above scopes the drill to one fixed column (`move_ins`), but a
+**SQL-pivoted table with auto columns** — the query itself does a SQL `PIVOT`/`CASE` cross-tab and
+`columns[]` is omitted — has generated columns, so nothing in the spec can gate or name one. Bind
+from the clicked column instead (a dvt-native `pivot:` table generates its columns the same way,
+but `valueFrom`/`bindings[]`/`when.field` binding from one isn't wired yet — bind a `pivot.rows`
+field there instead, see "Binding the clicked column" above):
+
+```json
+{ "id": "tenant-status-by-month", "type": "table", "title": "Tenant status by month",
+  "data": { "sourceId": "db",
+    "query": "select * from base pivot (sum(val) for mo in (any order by mo))" },
+  "onClick": { "type": "drill", "targetPage": "tenant-detail",
+    "bindings": [ { "param": "metric", "valueFrom": "metric" }, { "param": "month", "valueFrom": "column" } ],
+    "label": "Show tenants behind {columnLabel}" } }
+// no columns[] — the month columns come from the SQL PIVOT, not spec.pivot (dvt-native pivot
+// doesn't support this binding yet). Clicking the Mar-26 cell of the "Vacated" row opens
+// tenant-detail scoped to metric='Vacated' AND month='Mar-26' (target page:
+// "... where metric = :metric and month = :month"), and keeps working when a filter changes which
+// months exist, because nothing in the spec names a month.
+```
+
 ### Exploration patterns — composing interactivity into a story
 
 The section above is the **mechanics** (how to wire a filter, a drill, an overlay). This is
@@ -2139,8 +2201,10 @@ click opens a detail page answering "why". Use `onClick` for the default plain-l
 path (below), or a `contextMenu` drill action when the source should offer several destinations, or
 drill sits alongside other actions on one right-click menu. Use when each summary category has a
 meaningful, same-shape breakdown a reader will want on demand. **Mind the actionability rule:** a
-chart mark's click carries `category`/`value`/`seriesName`, but a `kpi`/`stat`/`metric-strip` click
-carries only the clicked **row** — `valueFrom` must name a real row field there, never `category`.
+chart mark's click carries `category`/`value`/`seriesName`, but a `kpi`/`stat`/`metric-strip`/
+`table` click carries only the clicked **row** — `valueFrom` must name a real row field there,
+never `category` (on `table`, a **mouse** click additionally carries the clicked `column`/
+`columnLabel`, DVT-4205 — see the gate-vs-bind note above).
 
 ```json
 { "id": "rev-by-region", "type": "chart:bar", "title": "Revenue by region",
@@ -2161,6 +2225,7 @@ triple to read `category` from, only the bound row — so name a real row field 
     "param": "region", "valueFrom": "region", "valueType": "string" },
   "spec": { "valueField": "revenue", "agg": "sum" } }
 // kpi/stat/metric-strip bind from rows[0] only, and only via a real row field — "category"/"value"/"seriesName" are never actionable there.
+// (table is the exception on a mouse click: "column"/"columnLabel" bind too, DVT-4205.)
 ```
 
 The target here is a **visible** page, so `drill` is the right mechanism; when the detail page
