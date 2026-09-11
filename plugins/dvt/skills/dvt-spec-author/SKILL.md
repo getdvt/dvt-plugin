@@ -3785,6 +3785,183 @@ dvt_export_schedule_get(dashboard_id="rev-dash-uuid", schedule_id="sched-uuid")
 To pause it later, `dvt_export_schedule_update(..., enabled=false)`; to retire it,
 `dvt_export_schedule_delete(...)`.
 
+## Exporting a panel's data — `dvt_panel_export` (DVT-137, DVT-4174, DVT-4196)
+
+One panel, one file.  `dvt_panel_export` re-runs the panel's own query **live** (never
+from cache) and hands back a CSV or Excel file, with the panel's column labels and
+number formats already applied — so the download reads like the panel rather than like
+raw SQL output.  Reach for it when someone wants *the numbers*; reach for
+`dvt_dashboard_render_inline` when they want a *picture* of the panel.
+
+| Tool | Verb | Permission | Purpose |
+|------|------|-----------|---------|
+| `dvt_panel_export` | write (egress) | `data:query` **and** `data:export` | Export one panel's rows as `csv` or `xlsx`, optionally with the table's on-screen styling baked in |
+
+Address the panel exactly as `dvt_element_get` does — `dashboard_id`, `page_id`,
+`element_id`, each of the latter two a UUID **or** the readable slug (`"panel-revenue"`).
+Pass the dashboard's current filter/drill values as `params` so what the user sees is
+what they get.
+
+**The two styles.**
+
+- `style="data"` (default) — the flat workbook: resolved column labels, number/date
+  formats, frozen header, autofilter.  Works on **every** panel type.
+- `style="formatted"` — the same, plus the table's rendered look **baked in as static
+  cell styles**: cell colors from conditional formatting and color scales, fonts,
+  alignment, column widths, frozen columns.  **Table panels only, and xlsx only.**
+
+`formatted` is refused before any query runs for a chart, KPI or metric panel (there is
+no cell presentation to bake) and for CSV (a CSV file has no styling at all).  Both
+refusals name the fallback: `style="data"`, which always works.
+
+**Baked, not live (DVT-4195).**  A formatted export is a *snapshot* of how the table
+rendered.  The workbook carries no Excel conditional-formatting rules, no color-scale
+rules and no formulas — editing a value in Excel will not recolor its cell.  Say that
+when you hand the file over; a user who expects live rules will think the export is
+broken.
+
+**One honest caveat on fidelity.**  Data cells, conditional-format results and color
+scales match the screen exactly, because the rules' token references travel with the
+panel.  The **header row** may not: it is styled from two theme tokens a panel's spec has
+no reason to reference, so an agent-produced workbook can fall back to default header
+colors where the same export taken from the panel's ⋯ menu in the browser is themed.  So
+promise a faithful *table*, not a pixel-perfect *header*.
+
+**Reading the result.**  `rowCount`, `bytes` and `filename` describe the file;
+`contentBase64` carries the bytes themselves when the file is small enough to travel in
+a tool result.  A larger file still exported successfully — `contentBase64` is simply
+absent and `note` explains why, so narrow the query if you need the bytes.  Two fields
+you must never swallow: `truncated: true` means the warehouse result hit dvt's row cap
+and **the file is a prefix, not the whole dataset**; a panel with baked-in rows and no
+query cannot be exported at all.
+
+Every export is a deliberate data-egress event: it bypasses the result cache and writes
+an audit row naming who exported what.
+
+## Emailing a report (DVT-4201, DVT-4264, DVT-4266) — Snowflake native app only
+
+A dvt dashboard can email **itself** — not a link and not an attachment, but the report
+*as the mail body*: KPI and stat tiles and tables as inline HTML, each chart panel as an
+inline PNG with a "View in dvt →" link (DVT-4264).  The send runs `SYSTEM$SEND_EMAIL` on
+the **caller's own** Snowflake session, so a report can never carry data its sender
+could not already see.
+
+These routes exist **only in the Snowflake native app**.  Everywhere else — dvt Gallery,
+self-host — every tool below returns a 404 whose `error.meaning` says so; read that
+field before telling a user their dashboard is missing.
+
+| Tool | Verb | Permission | Purpose |
+|------|------|-----------|---------|
+| `dvt_dashboard_email`        | write (sends mail) | `data:query` + `data:export` + `dashboard:read`  | Email the dashboard (or one page) as an HTML report, right now |
+| `dvt_email_schedule_create`  | write   | `dashboard:write` | Save a cadence + recipient list for that report |
+| `dvt_email_schedule_list`    | read    | `dashboard:read`  | List a dashboard's saved email schedules (recipients only for `dashboard:write`) |
+| `dvt_email_schedule_update`  | write   | `dashboard:write` | Enable/disable, move the cadence, or **replace** the recipient set |
+| `dvt_email_schedule_delete`  | write   | `dashboard:write` | Permanently delete a schedule |
+| `dvt_email_schedule_run`     | write (sends mail) | `dashboard:write` + `data:query` + `data:export` | Send a saved schedule's report now, on your session |
+
+This family is **disjoint** from `dvt_export_schedule_*` above: those deliver recurring
+**PDF/PNG artifact** exports by email or webhook; these deliver the **inline HTML
+report**.  The two REST surfaces do not share ids — a schedule id from one 404s on the
+other — so never pass an id between them.
+
+### Schedules do not fire on their own (ADR-0069)
+
+**This is the one thing you must not get wrong.**  This release ships the schedule
+*shell*: dvt stores the cadence, computes `nextRunAt`, and `dvt_email_schedule_run`
+sends on your live session.  **No ticker runs for these, in any edition.**  (Read that
+narrowly, in both directions.  The artifact export schedules documented above are driven
+by an external cron worker that is wired only in dvt's cloud editions — in the Snowflake
+native app nothing fires those either, so do not promise a customer here that their PDF
+schedule will arrive.  And where that runner *does* run it emails artifacts with no live
+user, so "dvt cannot email unattended" is wrong too.  What exists nowhere, in any
+edition, is an unattended sender for these email *reports*.)  A scheduled email send has
+no live user, therefore no Snowflake caller token, therefore no Snowflake identity to
+send as — ADR-0069 defers the unattended sender behind a founder decision and Snowflake
+Product Security pre-clearance.
+
+So when you save a schedule, tell the user: *the schedule is saved, and automatic
+sending is not available in this release; use "run now" to send it today.*  Say it that
+way round — ADR-0069 **defers** the unattended sender behind conditions that may never
+clear, so "arrives in a later release" would promise a date nobody has.  Never say the
+report "will arrive every Monday".  `nextRunAt` is when it **would** fire, not a promise
+that it will, and `enabled=false` pauses nothing that is currently sending — because
+nothing is.
+
+### Sending one now — `dvt_dashboard_email`
+
+```
+dvt_dashboard_email(
+  dashboard_id="rev-dash-uuid",
+  recipients=["dana@example.com", "sam@example.com"],
+  page_id="overview",            # optional — the SPEC page id (slug), not the page UUID
+  subject="Q3 revenue — week 37", # optional
+)
+```
+
+**Confirm with the user before you call it.**  There is no undo, no preview and no
+dedupe: calling twice sends twice.  To see the report first, render the page with
+`dvt_dashboard_render_inline`.
+
+**Recipients are the usual failure.**  1–50 **bare** addresses (`dana@example.com`,
+never `Dana <dana@example.com>`), and Snowflake requires each to be a user of the
+consumer's own account with a verified email — **one bad address fails the entire send,
+so nobody receives it.**  That check happens at send time and cannot be anticipated, so
+prove a new recipient list with one real send.
+
+**Read the audit summary before you report success.**  A 202 means the mail went out,
+not that it went out whole: panels that failed to load, or that fell past the per-email
+panel/chart caps, are replaced by a note and the mail still ships.  The result carries
+`panelsRendered` / `panelsFailed` / `panelsOmitted` plus a `reportComplete` flag — when
+it is `false`, say which panels did not make it.  (Note also that Gmail strips `data:`
+image URIs and shows a chart's alt text instead; Apple Mail, Outlook desktop and iOS
+Mail render them inline.)
+
+### What the failures mean
+
+Every failure carries `error.meaning` in plain language — whether anything was sent,
+whether a retry can possibly help, and whose problem it is.  The four worth knowing
+cold:
+
+- **409 `email-not-configured` / `email-integration-not-authorized`** — email is not set
+  up for this app.  Nothing was sent and no retry will help: a Snowflake ACCOUNTADMIN
+  must create a NOTIFICATION INTEGRATION, point the app at it with the app's
+  `set_email_integration` procedure, and grant the application both `USAGE` and
+  `CALLER USAGE` on it.  Tell the user to ask their admin.
+- **413 `email-too-large`** — the rendered report exceeds the email byte budget even
+  with every table dropped.  Email **one page** (`page_id`) or trim the dashboard's text
+  panels.
+- **504 `email-send-unconfirmed`** — dvt issued the send but Snowflake did not confirm
+  in time.  **The mail may still arrive.**  Do not retry blind; have the user check
+  inboxes first, or they get it twice.
+- **502 `report-unavailable`** — every data-bound panel failed, so dvt deliberately did
+  **not** send a report full of error placeholders.  Debug the panel SQL with
+  `dvt_data_query`; the real warehouse error is deliberately kept out of the email.
+
+### Scheduling one — worked example
+
+```
+# 1. Save the cadence.  preset kinds: daily | weekly | monthly | hourly;
+#    dayOfWeek 0=Sunday…6=Saturday refines weekly, dayOfMonth 1–28 refines monthly.
+dvt_email_schedule_create(
+  dashboard_id="rev-dash-uuid",
+  recipients=["dana@example.com"],
+  preset={"kind": "weekly", "dayOfWeek": 1, "atHour": 7},
+  timezone="America/New_York",
+  title="Monday revenue digest",
+)
+# → id, normalised cron "0 7 * * 1", nextRunAt (UTC)
+
+# 2. Prove it actually delivers — the only way to test the recipient list.
+dvt_email_schedule_run(dashboard_id="rev-dash-uuid", schedule_id="sched-uuid")
+
+# 3. Then tell the user: "Saved — Mondays 07:00 ET, and I sent one just now so you can
+#    check it.  Automatic sending isn't available, so run it from here when you need it."
+```
+
+`recipients` on `dvt_email_schedule_update` **replaces** the whole set — it is not
+additive, so read the current list with `dvt_email_schedule_list` first or you will
+silently drop everyone else.
+
 ## Rules
 
 - No JS functions in specs — use `format` objects and the `{ "$dvtRef": "formatter:pie-label@1" }` ref instead. `$dvtRef` ids are **versioned** (`<kind>:<name>@<version>`, e.g. `formatter:usd-compact@1`) and must be one of the registered ids — an unknown or unversioned ref is rejected at write time (ADR-0016).
