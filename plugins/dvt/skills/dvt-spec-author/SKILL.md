@@ -3820,12 +3820,18 @@ rules and no formulas — editing a value in Excel will not recolor its cell.  S
 when you hand the file over; a user who expects live rules will think the export is
 broken.
 
-**One honest caveat on fidelity.**  Data cells, conditional-format results and color
-scales match the screen exactly, because the rules' token references travel with the
-panel.  The **header row** may not: it is styled from two theme tokens a panel's spec has
-no reason to reference, so an agent-produced workbook can fall back to default header
-colors where the same export taken from the panel's ⋯ menu in the browser is themed.  So
-promise a faithful *table*, not a pixel-perfect *header*.
+**Fidelity.**  When the export reports full fidelity, the workbook is the same one the
+panel's ⋯ menu produces in the browser: data cells, conditional-format results, color scales
+*and* the themed header row all match the screen, because the panel's full resolved theme
+travels with the export, not just the tokens its rules happen to name.  A formatted result says so explicitly in
+`themeFidelity`: `"full"` means you may tell the user the file matches what they see.  Any
+other value means part of the theme did not reach the export, and `themeNote` says exactly
+what degraded — `"subset"` (a dvt API too old to hand over the full theme: header row falls
+back, and cells and rules are exact unless the note also reports drops), `"partial"` (some
+tokens did not fit the export API's limits — over-long, or past its entry cap — and were
+dropped), or `"none"` (no usable theme reached the export — rule and color-scale fills are
+**not** baked either, not just the header).  Read the note before you describe
+the file; never promise a match on anything but `"full"`.
 
 **Reading the result.**  `rowCount`, `bytes` and `filename` describe the file;
 `contentBase64` carries the bytes themselves when the file is small enough to travel in
