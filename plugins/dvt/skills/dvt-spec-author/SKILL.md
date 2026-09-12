@@ -552,7 +552,7 @@ parameter, prefer tooltip-only labels over a hardcoded `max`.
 | `splitNumber` | integer | Suggested tick count (ECharts treats as a hint). |
 | `logBase` | number | Base for `type:"log"`. Default 10. |
 | `name` | string | Axis title label. Styled by `chart.axis.name.*` tokens. |
-| `nameLocation` | `"start"` \| `"middle"` \| `"center"` \| `"end"` | Where along the axis the name anchors. Default `"end"` (the engine default) — but the AUTHORING default for a vertical value-axis `name` is `nameLocation: "middle"` with `nameGap` ≈ 40 (tune 36–44 to label width); an end/top-positioned vertical axis name clips against the panel's top edge (reproduced 4× on one build, measured on the FCC rebuild, 2026-08). |
+| `nameLocation` | `"start"` \| `"middle"` \| `"center"` \| `"end"` | Where along the axis the name anchors. Default `"end"` (the engine default). Every position is contained inside the plot insets, so `end` does not clip (except on very small panels where ECharts' 25% `outerBoundsClamp` binds); use `"middle"` with `nameGap` 28–40 when you want a centred title (a style choice, not a workaround). |
 | `nameGap` | number | Distance in pixels between the name and the axis line. |
 | `nameRotate` | number | Name label rotation in degrees. |
 | `boundaryGap` | boolean \| array | Category-axis edge padding. `false` = data point on the axis edge. Array `["10%","10%"]` for value axes. |
@@ -578,8 +578,9 @@ parameter, prefer tooltip-only labels over a hardcoded `max`.
     "series": [{ "type": "bar", "dataField": "revenue" }] } }
 ```
 
-Never leave an axis `name` at end-position on horizontal bars — it collides with the last value
-label; prefer `nameLocation: "middle"`, or fold the unit into the panel subtitle instead.
+On horizontal bars an `end`-positioned axis `name` shares the right edge with `label.position: "right"`
+values; the renderer keeps it clear of tick labels, but if it crowds the last value label prefer
+`nameLocation: "middle"`, or fold the unit into the panel subtitle.
 
 **Dual-axis pattern.** Set `yAxis` to an array and reference the secondary axis by index in the series. `dvt_spec_validate` warns when `series[].yAxisIndex > 0` but `yAxis` is not an array of sufficient length.
 
@@ -631,7 +632,7 @@ Four dvt-Core keys control the plot grid — no hand-written ECharts `splitLine`
     "series": [{ "type": "bar", "dataField": "revenue" }] } }
 ```
 
-`density:"compact"` is for panels where space is scarce (e.g. a narrow column). For most charts, omit it (the `"comfortable"` default). A partial `gridPadding` (e.g. only `left`) deep-merges over the defaults — the other three insets and `containLabel` are unchanged.
+`density:"compact"` is for panels where space is scarce (e.g. a narrow column). For most charts, omit it (the `"comfortable"` default). A partial `gridPadding` (e.g. only `left`) deep-merges over the defaults — the other three insets and the axis-label/name containment (`outerBoundsMode:"same"`, `outerBoundsContain:"all"`) stay in place.
 
 ### metric-strip
 
