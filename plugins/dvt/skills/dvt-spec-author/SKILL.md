@@ -191,9 +191,10 @@ The full staged walk-through, with the rubric for each stage, is **Design flow**
 | `filter-bar` | Horizontal band grouping several filter elements in one light surface (DVT-551) | `panels` (required — ordered list of child filter element ids from the same page's `panels[]`), `title?`; child filters should set `chrome:"none"` to avoid doubled chrome; children are NOT page grid items; semantic pass enforces existence / no double-placement |
 | `container` | Tabbed container — one page region holding several panel sets behind tabs (layout primitive, not a chart) | `spec.layout: "tabs"` (required), `tabs[]` (required) each `{ id, label, panels:[childId…], layout }`, `defaultTab?`. **Children stay real elements in `panels[]`** referenced by id (never inlined); each tab carries its own mini 24-col `layout`, and the container itself occupies one cell in the page grid. Children are NOT in the page grid. Single level only (no tabs-in-tabs). NOT the same as page-level tabs (`pages[]`+`tabBar`). The semantic validator rejects missing refs / a child placed twice / a child also in the page grid / nesting / a bad `defaultTab` / a tab id that collides with a panel id |
 | `agent` | Interactive block hosting a live conversational thread with a registered Cortex agent (DVT-3562, ADR-0082 W2) | `agent?` (optional `database.schema.agent` FQN of the Cortex agent this panel talks to — unset shows an explicit "no agent configured" state, never a silent no-op or a guessed default). Deliberately minimal: no `data` block (a turn is a Cortex agent run, not a warehouse query, and never enters the query-result cache) and no per-user/thread state — a conversation is per-viewer browser state only, never written into the spec or a stored revision. Interactive-only: a headless/static render shows a placeholder in place of the chat surface |
+| `python` | Full-profile escape hatch (ADR-0014), Snowflake-only (DVT-4255/DVT-4258, ADR-0084) — the author writes Python that runs on the warehouse as an anonymous procedure under the connection's own identity, never owner's rights | `code` (required, 64 KiB byte cap, no `$$`, must define `def main(session, <params…>)`), `params` (typed `string`\|`number`\|`boolean`, bound BY NAME from filter/drill values like a SQL panel's `data.params`, one CALL argument each in declared order), `packages` (allow-list: `pandas`\|`numpy`\|`matplotlib`\|`scipy`\|`pyarrow`; `snowflake-snowpark-python` is implicit), `output` (`table` default\|`value`\|`image`), `presentation` (reuses `TableSpec`/`KpiSpec` — no new visual vocabulary). Requires `data.sourceId` of a Snowflake source. `onClick` is forbidden in v1 (it may still be a filter/drill TARGET via `params`). Authoring requires the `python:author` capability; gated behind the `pythonPanels` deployment switch (off in every edition until DVT-4259 lands execution) |
 | `action-button` | Pressable call-to-action block: `style` (aesthetics) + `action` (click behavior) + `align?`/`offset?`/`width?` (its own slot placement) (DVT-4216) | `style` (required, `ButtonStyleSpec`: `label` required, plus `icon`/`iconText`/`iconPosition`/`variant`/`size` presets and raw siblings), `action` (required, `ActionSpec`, `kind`-discriminated: `navigate`\|`filter`\|`exportPage`\|`exportAll`). Honesty clause: schema + render in DVT-4217; dispatch per kind: `navigate` + `filter` are live (DVT-4218 / DVT-4219); `exportPage`/`exportAll` are inert until DVT-4220 — a click on those kinds does nothing |
 
-Any panel can also carry a `contextMenu` object (right-click action menu — filter/drill/link/copy/export/openOverlay) and/or a `drill` object (retained for back-compat, inert on its own — DVT-555; wire drill navigation via `onClick` or a `contextMenu` action instead). `onClick` (a single, disclosed left-click action — filter/drill/openOverlay) is narrower: a property on every panel type that resolves a clicked datum (every `chart:*` type, plus `table`/`kpi`/`stat`/`metric-strip`) — but `chart:line:racing` is inert at runtime (no affordance, no dispatch; DVT-3041); the schema rejects it on `filter`, `filter-bar`, `container`, `divider`, `section`, `text`, `html`, `hero`, `media`, `agent`, `action-button`, which surface no clicked datum. See **Filters & drill-downs** for the full field reference and the post-DVT-2722 actionability rule (which surfaces need a row-field `valueFrom` vs. `category`/`value`/`seriesName` vs. — on `table`, `column`/`columnLabel`, gated for keyboard by `onClick.column`, DVT-4205).
+Any panel can also carry a `contextMenu` object (right-click action menu — filter/drill/link/copy/export/openOverlay) and/or a `drill` object (retained for back-compat, inert on its own — DVT-555; wire drill navigation via `onClick` or a `contextMenu` action instead). `onClick` (a single, disclosed left-click action — filter/drill/openOverlay) is narrower: a property on every panel type that resolves a clicked datum (every `chart:*` type, plus `table`/`kpi`/`stat`/`metric-strip`) — but `chart:line:racing` is inert at runtime (no affordance, no dispatch; DVT-3041); the schema rejects it on `filter`, `filter-bar`, `container`, `divider`, `section`, `text`, `html`, `hero`, `media`, `agent`, `action-button`, `python` (a python panel may still be a filter/drill TARGET via its own `params`), which surface no clicked datum. See **Filters & drill-downs** for the full field reference and the post-DVT-2722 actionability rule (which surfaces need a row-field `valueFrom` vs. `category`/`value`/`seriesName` vs. — on `table`, `column`/`columnLabel`, gated for keyboard by `onClick.column`, DVT-4205).
 
 ### ⚠️ Chart spec — critical: do NOT use Vega-lite encoding syntax
 
@@ -1389,6 +1390,38 @@ Snowflake edition (`MediaUploads=false`, server/internal/config/capabilities.go:
 server/internal/api/media.go:123-129). Embed the image as a `data:` URI or use a gradient scrim
 band instead on either.
 
+### python panels — Snowflake-only escape hatch
+
+Use `python` when SQL genuinely cannot express the compute — a stats routine, a
+custom transform, a chart matplotlib can render but ECharts can't. It is a
+**Full-profile** escape hatch (ADR-0014, alongside `html`/`media`/`chart:custom`)
+and **Snowflake-only**: dvt runs `spec.code` on the warehouse as an anonymous
+Snowpark procedure, under the connection's **own identity** — the viewer's own
+rights under caller's rights, or the shared service identity on a service
+connection — never owner's rights, so it grants no privilege a SQL panel on
+that connection doesn't already have. `code` must define
+`def main(session, <params…>)`; `params` bind BY NAME from filter/drill values
+exactly like a SQL panel's `data.params`, one CALL argument each in declared
+order. `onClick` is forbidden on a python panel; it may still be a filter/drill
+TARGET through its own `params`.
+
+```json
+{ "type": "python", "title": "Revenue percentile",
+  "data": { "sourceId": "snowflake_db" },
+  "spec": {
+    "code": "def main(session, min_amount):\n    df = session.sql(\"SELECT * FROM analytics.public.orders WHERE amount >= ?\", params=[min_amount]).to_pandas()\n    return df",
+    "params": { "min_amount": { "type": "number" } },
+    "packages": ["pandas"],
+    "output": "table"
+  } }
+```
+
+`packages` is a closed allow-list (`pandas`, `numpy`, `matplotlib`, `scipy`,
+`pyarrow`; `snowflake-snowpark-python` is implicit). `output` selects `table`
+(default), `value`, or `image` (a base64 PNG); `presentation` reuses the
+existing `TableSpec`/`KpiSpec` vocabulary — no new visual keys. Authoring
+requires the `python:author` capability; viewing needs only `dashboard:read`.
+
 ### canvas blocks — `stat` · `hero` · `media` · `divider`
 
 Composition blocks for richer layouts (designed for `layout.mode: "canvas"`
@@ -1870,7 +1903,8 @@ which controls which panels re-query — the two are independent).
 resolves a clicked datum**: every `chart:*` type (including animated) — but `chart:line:racing` is
 inert at runtime (no affordance, no dispatch; DVT-3041) — plus `table`/`kpi`/`stat`/
 `metric-strip`; the schema rejects it on `filter`, `filter-bar`, `container`, `divider`, `section`,
-`text`, `html`, `hero`, `media`, `agent`, `action-button`, which surface no clicked datum. A single, **bare** action object
+`text`, `html`, `hero`, `media`, `agent`, `action-button`, `python` (may still be a filter/drill
+TARGET via its own `params`), which surface no clicked datum. A single, **bare** action object
 (NOT `{ action, affordance }`) fired by a plain **left-click** on a mark/row — DOM surfaces
 (`table`/`kpi`/`stat`/`metric-strip`) additionally activate on **keyboard** Enter/Space. `type` ∈
 `filter` | `drill` | `openOverlay` — the navigation-safe subset of `contextMenu`'s vocabulary (no
