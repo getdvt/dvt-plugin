@@ -3883,9 +3883,11 @@ an audit row naming who exported what.
 
 A dvt dashboard can email **itself** — not a link and not an attachment, but the report
 *as the mail body*: KPI and stat tiles and tables as inline HTML, each chart panel as an
-inline PNG with a "View in dvt →" link (DVT-4264).  The send runs `SYSTEM$SEND_EMAIL` on
-the **caller's own** Snowflake session, so a report can never carry data its sender
-could not already see.
+inline PNG with a "View in dvt →" link (DVT-4264).  An interactive send runs
+`SYSTEM$SEND_EMAIL` on the **caller's own** Snowflake session, so it can never carry data
+its sender could not already see.  An unattended scheduled send reads its rows as the
+**task-owner role** the consumer's admin chose instead (see below), so its contents are
+that role's, not its creator's.
 
 These routes exist **only in the Snowflake native app**.  Everywhere else — dvt Gallery,
 self-host — every tool below returns a 404 whose `error.meaning` says so; read that
@@ -3899,34 +3901,37 @@ field before telling a user their dashboard is missing.
 | `dvt_email_schedule_update`  | write   | `dashboard:write` | Enable/disable, move the cadence, or **replace** the recipient set |
 | `dvt_email_schedule_delete`  | write   | `dashboard:write` | Permanently delete a schedule |
 | `dvt_email_schedule_run`     | write (sends mail) | `dashboard:write` + `data:query` + `data:export` | Send a saved schedule's report now, on your session |
+| `dvt_email_schedule_setup`   | read    | `dashboard:write` | The statements a Snowflake **admin** runs once to create the consumer-owned task that fires a schedule, plus its `taskState` |
 
 This family is **disjoint** from `dvt_export_schedule_*` above: those deliver recurring
 **PDF/PNG artifact** exports by email or webhook; these deliver the **inline HTML
 report**.  The two REST surfaces do not share ids — a schedule id from one 404s on the
 other — so never pass an id between them.
 
-### Schedules do not fire on their own (ADR-0069)
+### Schedules fire only once an admin creates their task (DVT-4300, ADR-0069)
 
-**This is the one thing you must not get wrong.**  This release ships the schedule
-*shell*: dvt stores the cadence, computes `nextRunAt`, and `dvt_email_schedule_run`
-sends on your live session.  **No ticker runs for these, in any edition.**  (Read that
-narrowly, in both directions.  The artifact export schedules documented above are driven
-by an external cron worker that is wired only in dvt's cloud editions — in the Snowflake
-native app nothing fires those either, so do not promise a customer here that their PDF
-schedule will arrive.  And where that runner *does* run it emails artifacts with no live
-user, so "dvt cannot email unattended" is wrong too.  What exists nowhere, in any
-edition, is an unattended sender for these email *reports*.)  A scheduled email send has
-no live user, therefore no Snowflake caller token, therefore no Snowflake identity to
-send as — ADR-0069 defers the unattended sender behind a founder decision and Snowflake
-Product Security pre-clearance.
+**This is the one thing you must not get wrong.**  A saved schedule *does* send on its
+own — but only once a Snowflake admin creates the task dvt generated for it.  dvt cannot
+create that task: it lives in the consumer's own database under a role their admin picks,
+and it is what gives the 07:00 run a Snowflake identity to read the data as (ADR-0069
+declined a standing "act as this user" grant for dvt).  Until the admin runs the
+statements the schedule is saved, previewed, and **nothing arrives**;
+`dvt_email_schedule_run` still sends now, on your own session.
 
-So when you save a schedule, tell the user: *the schedule is saved, and automatic
-sending is not available in this release; use "run now" to send it today.*  Say it that
-way round — ADR-0069 **defers** the unattended sender behind conditions that may never
-clear, so "arrives in a later release" would promise a date nobody has.  Never say the
-report "will arrive every Monday".  `nextRunAt` is when it **would** fire, not a promise
-that it will, and `enabled=false` pauses nothing that is currently sending — because
-nothing is.
+`dvt_email_schedule_setup` returns those statements — grants, `CREATE TASK`, `DROP TASK`
+— and `taskState`, which has two live values: `confirmed` (dvt has seen that task drive a
+run) and `absent` (dvt has seen no run — which covers both "nothing created" AND "created
+but not yet fired", since dvt cannot tell them apart, so never report it as "nothing was
+created").  **Only at `confirmed` may you say the report will arrive by itself.**  You
+cannot run them — hand them over for an ACCOUNTADMIN; the Schedule tab shows the same
+text.  Two limits to pass on: a scheduled report carries **no chart images** (PNGs need a
+live browser session, which an unattended run has none of — `Run now` is unaffected), and
+the task's `SCHEDULE` **must match** the cadence dvt generated or the run is refused
+(`no-scheduled-occurrence`), so after a cadence change have the admin re-run the
+statements.  dvt sees only whether the task has called in and when it last fired — it
+cannot edit, disable or drop a task it does not own, and deleting a schedule leaves the
+task in place.  (Separate, still true: **artifact** export schedules run off a cron
+worker wired only in dvt's cloud editions — nothing fires those in the native app.)
 
 ### Sending one now — `dvt_dashboard_email`
 
@@ -3995,8 +4000,13 @@ dvt_email_schedule_create(
 # 2. Prove it actually delivers — the only way to test the recipient list.
 dvt_email_schedule_run(dashboard_id="rev-dash-uuid", schedule_id="sched-uuid")
 
-# 3. Then tell the user: "Saved — Mondays 07:00 ET, and I sent one just now so you can
-#    check it.  Automatic sending isn't available, so run it from here when you need it."
+# 3. Get the statements an admin must run to make it fire on its own, and check state.
+dvt_email_schedule_setup(dashboard_id="rev-dash-uuid", schedule_id="sched-uuid")
+# → grantsSql / createTaskSql / dropTaskSql, taskState: "absent"
+
+# 4. Then tell the user: "Saved — Mondays 07:00 ET, and I sent one just now so you can
+#    check it.  It won't arrive on its own until an ACCOUNTADMIN runs these statements;
+#    once they have, the Monday send is automatic (without the chart images)."
 ```
 
 `recipients` on `dvt_email_schedule_update` **replaces** the whole set — it is not
