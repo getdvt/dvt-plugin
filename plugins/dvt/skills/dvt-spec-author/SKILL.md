@@ -3931,11 +3931,13 @@ run) and `absent` (dvt has seen no run — which covers both "nothing created" A
 but not yet fired", since dvt cannot tell them apart, so never report it as "nothing was
 created").  **Only at `confirmed` may you say the report will arrive by itself.**  You
 cannot run them — hand them over for an ACCOUNTADMIN; the Schedule tab shows the same
-text.  Two limits to pass on: a scheduled report carries **no chart images** (PNGs need a
-live browser session, which an unattended run has none of — `Run now` is unaffected), and
-the task's `SCHEDULE` **must match** the cadence dvt generated or the run is refused
-(`no-scheduled-occurrence`), so after a cadence change have the admin re-run the
-statements.  dvt sees only whether the task has called in and when it last fired — it
+text.  One limit to pass on: the task's `SCHEDULE` **must match** the cadence dvt
+generated or the run is refused (`no-scheduled-occurrence`), so after a cadence change
+have the admin re-run the statements.  A scheduled report *does* embed chart images, the
+same as an interactive send — the render is server-side, from the rows the task already
+staged, under the same limits (at most 4 chart images; a chart that fails or would blow
+the 700 KB body budget falls back to its "view in dvt" note instead).  dvt sees only
+whether the task has called in and when it last fired — it
 cannot edit, disable or drop a task it does not own, and deleting a schedule leaves the
 task in place.  (Separate, still true: **artifact** export schedules run off a cron
 worker wired only in dvt's cloud editions — nothing fires those in the native app.)
@@ -4013,7 +4015,7 @@ dvt_email_schedule_setup(dashboard_id="rev-dash-uuid", schedule_id="sched-uuid")
 
 # 4. Then tell the user: "Saved — Mondays 07:00 ET, and I sent one just now so you can
 #    check it.  It won't arrive on its own until an ACCOUNTADMIN runs these statements;
-#    once they have, the Monday send is automatic (without the chart images)."
+#    once they have, the Monday send is fully automatic, chart images included."
 ```
 
 `recipients` on `dvt_email_schedule_update` **replaces** the whole set — it is not
