@@ -3934,9 +3934,11 @@ cannot run them — hand them over for an ACCOUNTADMIN; the Schedule tab shows t
 text.  One limit to pass on: the task's `SCHEDULE` **must match** the cadence dvt
 generated or the run is refused (`no-scheduled-occurrence`), so after a cadence change
 have the admin re-run the statements.  A scheduled report *does* embed chart images, the
-same as an interactive send — the render is server-side, from the rows the task already
-staged, under the same limits (at most 4 chart images; a chart that fails or would blow
-the 700 KB body budget falls back to its "view in dvt" note instead).  dvt sees only
+same as an interactive send — the render is server-side, from the rows dvt already holds
+(the ones the task staged for that run, plus any panel carrying its own inline
+`data.rows`, whose `query` is kept for the SQL inspector and is never executed), under the
+same limits (at most 4 chart images; a chart that fails or would blow the 700 KB body
+budget falls back to its "view in dvt" note instead).  dvt sees only
 whether the task has called in and when it last fired — it
 cannot edit, disable or drop a task it does not own, and deleting a schedule leaves the
 task in place.  (Separate, still true: **artifact** export schedules run off a cron
