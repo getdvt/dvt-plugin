@@ -3950,8 +3950,19 @@ dvt_dashboard_email(
   recipients=["dana@example.com", "sam@example.com"],
   page_id="overview",            # optional — the SPEC page id (slug), not the page UUID
   subject="Q3 revenue — week 37", # optional
+  params={"region": "West"},     # optional — filter the report
 )
 ```
+
+**`params` filters the report.**  Pass it when the user asks for a filtered send ("email
+me just the West numbers") — do NOT describe the filter in the subject line and mail the
+whole thing.  Every key must be a param some panel on the emailed page declares in its
+`data.params` (`dvt_dashboard_get` shows them); an undeclared key comes back as a 422
+that names it, never a silent unfiltered send.  Values are bound to each panel's query,
+so the tables and the chart images agree, and the mail carries a `Filtered: Region =
+West` line so the recipient knows what they are looking at.  Omit it to send the
+report's own default view.  A stored **schedule** carries no filter state — an
+unattended fire always sends the default view.
 
 **Confirm with the user before you call it.**  There is no undo, no preview and no
 dedupe: calling twice sends twice.  To see the report first, render the page with
