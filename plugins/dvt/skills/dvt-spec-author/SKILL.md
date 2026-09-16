@@ -191,7 +191,7 @@ The full staged walk-through, with the rubric for each stage, is **Design flow**
 | `filter-bar` | Horizontal band grouping several filter elements in one light surface (DVT-551) | `panels` (required — ordered list of child filter element ids from the same page's `panels[]`), `title?`; child filters should set `chrome:"none"` to avoid doubled chrome; children are NOT page grid items; semantic pass enforces existence / no double-placement |
 | `container` | Tabbed container — one page region holding several panel sets behind tabs (layout primitive, not a chart) | `spec.layout: "tabs"` (required), `tabs[]` (required) each `{ id, label, panels:[childId…], layout }`, `defaultTab?`. **Children stay real elements in `panels[]`** referenced by id (never inlined); each tab carries its own mini 24-col `layout`, and the container itself occupies one cell in the page grid. Children are NOT in the page grid. Single level only (no tabs-in-tabs). NOT the same as page-level tabs (`pages[]`+`tabBar`). The semantic validator rejects missing refs / a child placed twice / a child also in the page grid / nesting / a bad `defaultTab` / a tab id that collides with a panel id |
 | `agent` | Interactive block hosting a live conversational thread with a registered Cortex agent (DVT-3562, ADR-0082 W2) | `agent?` (optional `database.schema.agent` FQN of the Cortex agent this panel talks to — unset shows an explicit "no agent configured" state, never a silent no-op or a guessed default). Deliberately minimal: no `data` block (a turn is a Cortex agent run, not a warehouse query, and never enters the query-result cache) and no per-user/thread state — a conversation is per-viewer browser state only, never written into the spec or a stored revision. Interactive-only: a headless/static render shows a placeholder in place of the chat surface |
-| `python` | Full-profile escape hatch (ADR-0014), Snowflake-only (DVT-4255/DVT-4259, ADR-0084) — the author writes Python that runs on the warehouse as an anonymous procedure under the connection's own identity, never owner's rights | `code` (required, 64 KiB byte cap, no `$$`, must define `def main(session, <params…>)`), `params` (typed `string`\|`number`\|`boolean`, bound BY NAME from filter/drill values like a SQL panel's `data.params`, one CALL argument each in declared order), `packages` (allow-list: `pandas`\|`numpy`\|`matplotlib`\|`scipy`\|`pyarrow`; `snowflake-snowpark-python` is implicit), `output` (`table` default\|`value`\|`image`), `presentation` (reuses `TableSpec`/`KpiSpec` — no new visual vocabulary). Requires `data.sourceId` of a Snowflake source. `onClick` is forbidden in v1 (it may still be a filter/drill TARGET via `params`). Authoring requires the `python:author` capability; executes since DVT-4259 (engine assembles a Snowpark anonymous procedure per run, ~4–6 s floor; Snowflake sources only), gated behind the `pythonPanels` deployment switch (on everywhere by default — an operator kill switch). Honesty clause: `POST /v1/data/query` executes the code and returns a real `table`/`value`/`image` result; no first-party surface (SPA, MCP tools, exports, renders) sends a python payload yet — the renderer + tray editor land in DVT-4260 |
+| `python` | Full-profile escape hatch (ADR-0014), Snowflake-only (DVT-4255/DVT-4259, ADR-0084) — the author writes Python that runs on the warehouse as an anonymous procedure under the connection's own identity, never owner's rights | `code` (required, 64 KiB byte cap, no `$$`, must define `def main(session, <params…>)`), `params` (typed `string`\|`number`\|`boolean`, bound BY NAME from filter/drill values like a SQL panel's `data.params`, one CALL argument each in declared order), `packages` (allow-list: `pandas`\|`numpy`\|`matplotlib`\|`scipy`\|`pyarrow`; `snowflake-snowpark-python` is implicit), `output` (`table` default\|`value`\|`image`), `presentation` (reuses `TableSpec`/`KpiSpec` — no new visual vocabulary). Requires `data.sourceId` of a Snowflake source. `onClick` is forbidden in v1 (it may still be a filter/drill TARGET via `params`). Authoring requires the `python:author` capability; executes since DVT-4259 (engine assembles a Snowpark anonymous procedure per run, ~4–6 s floor; Snowflake sources only), gated behind the `pythonPanels` deployment switch (granted by every edition row, but rendered OFF on the Snowflake native app until the DVT-4453 security gate is banked — a spec with a python panel still validates, execution is refused; read `editionCapabilities.pythonPanels`). Honesty clause: `POST /v1/data/query` executes the code and returns a real `table`/`value`/`image` result; no first-party surface (SPA, MCP tools, exports, renders) sends a python payload yet — the renderer + tray editor land in DVT-4260 |
 | `action-button` | Pressable call-to-action block: `style` (aesthetics) + `action` (click behavior) + `align?`/`offset?`/`width?` (its own slot placement) (DVT-4216) | `style` (required, `ButtonStyleSpec`: `label` required, plus `icon`/`iconText`/`iconPosition`/`variant`/`size` presets and raw siblings), `action` (required, `ActionSpec`, `kind`-discriminated: `navigate`\|`filter`\|`exportPage`\|`exportAll`). Honesty clause: schema + render in DVT-4217; dispatch per kind: `navigate` + `filter` are live (DVT-4218 / DVT-4219); `exportPage`/`exportAll` are inert until DVT-4220 — a click on those kinds does nothing |
 
 Any panel can also carry a `contextMenu` object (right-click action menu — filter/drill/link/copy/export/openOverlay) and/or a `drill` object (retained for back-compat, inert on its own — DVT-555; wire drill navigation via `onClick` or a `contextMenu` action instead). `onClick` (a single, disclosed left-click action — filter/drill/openOverlay) is narrower: a property on every panel type that resolves a clicked datum (every `chart:*` type, plus `table`/`kpi`/`stat`/`metric-strip`) — but `chart:line:racing` is inert at runtime (no affordance, no dispatch; DVT-3041); the schema rejects it on `filter`, `filter-bar`, `container`, `divider`, `section`, `text`, `html`, `hero`, `media`, `agent`, `action-button`, `python` (a python panel may still be a filter/drill TARGET via its own `params`), which surface no clicked datum. See **Filters & drill-downs** for the full field reference and the post-DVT-2722 actionability rule (which surfaces need a row-field `valueFrom` vs. `category`/`value`/`seriesName` vs. — on `table`, `column`/`columnLabel`, gated for keyboard by `onClick.column`, DVT-4205).
@@ -1421,10 +1421,17 @@ TARGET through its own `params`.
 (default), `value`, or `image` (a base64 PNG); `presentation` reuses the
 existing `TableSpec`/`KpiSpec` vocabulary — no new visual keys. Authoring
 requires the `python:author` capability; viewing needs only `dashboard:read`.
-Execution runs behind the `pythonPanels` deployment capability (on in every
-edition since DVT-4259, an operator kill switch) and only against a
+Execution runs behind the `pythonPanels` deployment capability and only against a
 Snowflake source — expect a ~4–6 second floor per run (the engine assembles
-and calls a Snowpark anonymous procedure). Honesty clause: `POST /v1/data/query`
+and calls a Snowpark anonymous procedure). **On the Snowflake native app that
+capability is currently OFF (DVT-4489 follow-up / DVT-4453):** the code is
+built and every edition row grants it, but the shipped service spec renders
+`PYTHON_PANELS_ENABLED=false` until the ADR-0084 H5 security gate is banked, so
+there `/v1/data/query` refuses a python payload with `python-not-available` and
+the write seam refuses a new python panel. A spec CARRYING a python panel still
+validates — the rows are forward-compatible and are not stripped — so read
+`editionCapabilities.pythonPanels` before telling anyone a python panel will
+run, and do not author one where it is false. Honesty clause: `POST /v1/data/query`
 executes the code and returns a real `table`/`value`/`image` result; no
 first-party surface (SPA, MCP tools, exports, renders) sends a python payload
 yet — the renderer + tray editor land in DVT-4260.
@@ -3903,12 +3910,16 @@ field before telling a user their dashboard is missing.
 | Tool | Verb | Permission | Purpose |
 |------|------|-----------|---------|
 | `dvt_dashboard_email`        | write (sends mail) | `data:query` + `data:export` + `dashboard:read`  | Email the dashboard (or one page) as an HTML report, right now |
-| `dvt_email_schedule_create`  | write   | `dashboard:write` | Save a cadence + recipient list for that report |
-| `dvt_email_schedule_list`    | read    | `dashboard:read`  | List a dashboard's saved email schedules (recipients only for `dashboard:write`) |
-| `dvt_email_schedule_update`  | write   | `dashboard:write` | Enable/disable, move the cadence, or **replace** the recipient set |
-| `dvt_email_schedule_delete`  | write   | `dashboard:write` | Permanently delete a schedule |
-| `dvt_email_schedule_run`     | write (sends mail) | `dashboard:write` + `data:query` + `data:export` | Send a saved schedule's report now, on your session |
-| `dvt_email_schedule_setup`   | read    | `dashboard:write` | **Usually absent.** The statements a Snowflake **admin** runs once to create the consumer-owned task that fires a schedule, plus its `taskState` — registered only where unattended sending is offered (see below) |
+| `dvt_email_schedule_create`  | write   | `dashboard:write` | **Usually absent.** Save a cadence + recipient list for that report |
+| `dvt_email_schedule_list`    | read    | `dashboard:read`  | **Usually absent.** List a dashboard's saved email schedules (recipients only for `dashboard:write`) |
+| `dvt_email_schedule_update`  | write   | `dashboard:write` | **Usually absent.** Enable/disable, move the cadence, or **replace** the recipient set |
+| `dvt_email_schedule_delete`  | write   | `dashboard:write` | **Usually absent.** Permanently delete a schedule |
+| `dvt_email_schedule_run`     | write (sends mail) | `dashboard:write` + `data:query` + `data:export` | **Usually absent.** Send a saved schedule's report now, on your session |
+| `dvt_email_schedule_setup`   | read    | `dashboard:write` | **Usually absent.** The statements a Snowflake **admin** runs once to create the consumer-owned task that fires a schedule, plus its `taskState` |
+
+Only `dvt_dashboard_email` is on every install.  The six `dvt_email_schedule_*` tools are
+registered **together or not at all**, and as dvt ships today they are **not registered**
+— see the section below before you tell anyone a report can be scheduled.
 
 This family is **disjoint** from `dvt_export_schedule_*` above: those deliver recurring
 **PDF/PNG artifact** exports by email or webhook; these deliver the **inline HTML
@@ -3918,24 +3929,27 @@ other — so never pass an id between them.
 ### A saved schedule does not send by itself (DVT-4489 / DVT-4300, ADR-0069)
 
 **This is the one thing you must not get wrong**, and what "by itself" even means depends
-on the install — so check, do not assume.  **Is `dvt_email_schedule_setup` in your tool
-list?**  That one question separates the two cases, and the result of every schedule tool
-carries an `automaticSending` sentence stating which one you are in.
+on the install — so check, do not assume.  **Are the `dvt_email_schedule_*` tools in your
+tool list?**  That one question separates the two cases; all six of them are registered
+together or not at all, so any one of them answers it.
 
-**Case 1 — it is absent: unattended sending is not offered here.**  This is how dvt ships
-today.  A schedule is a saved cadence and recipient list, and `dvt_email_schedule_run`
-(or the user pressing **Run now**) is the *only* thing that sends it.  `nextRunAt` is the
-next occurrence of the cadence, not a send that will happen; never quote it back as proof
-that mail is coming.  `GET .../{sid}/setup` answers 404 `feature-disabled` if something
-calls it anyway.  Say: "Saved — it will send whenever you run it; automatic sending isn't
-available on this deployment yet."
+**Case 1 — they are absent: this deployment has no email schedules.**  This is how dvt
+ships today.  There is no cadence to save, and every
+`/v1/dashboards/{id}/email-schedules` route answers 404 `feature-disabled` if something
+calls one anyway.  Do not describe a workaround and do not offer to "set one up" — say so
+plainly: "This deployment emails a report on demand, but it can't schedule one."  What you
+*can* do is `dvt_dashboard_email`, which sends the report now, with its chart images and
+the filters the user is looking at.  An earlier release listed the schedule tools while
+nothing fired them; that was withdrawn precisely because it let an agent tell a user their
+report was scheduled when it never would be.
 
-**Case 2 — it is present: a schedule fires once an admin creates its task.**  dvt cannot
+**Case 2 — they are present: a schedule fires once an admin creates its task.**  dvt cannot
 create that task: it lives in the consumer's own database under a role their admin picks,
 and it is what gives the 07:00 run a Snowflake identity to read the data as (ADR-0069
 declined a standing "act as this user" grant for dvt).  Until the admin runs the
 statements the schedule is saved, previewed, and **nothing arrives**;
-`dvt_email_schedule_run` still sends now, on your own session.
+`dvt_email_schedule_run` still sends now, on your own session.  The result of every
+schedule tool carries an `automaticSending` sentence saying the same thing.
 
 In case 2, `dvt_email_schedule_setup` returns those statements — grants, `CREATE TASK`,
 `DROP TASK` — and `taskState`, which has two live values: `confirmed` (dvt has seen that
@@ -4021,6 +4035,10 @@ cold:
 
 ### Scheduling one — worked example
 
+**Only reachable in case 2.**  On a shipped install none of the calls below exist; if a
+user asks for a recurring report there, say it is not offered and send one now with
+`dvt_dashboard_email` instead.
+
 ```
 # 1. Save the cadence.  preset kinds: daily | weekly | monthly | hourly;
 #    dayOfWeek 0=Sunday…6=Saturday refines weekly, dayOfMonth 1–28 refines monthly.
@@ -4036,19 +4054,13 @@ dvt_email_schedule_create(
 # 2. Prove it actually delivers — the only way to test the recipient list.
 dvt_email_schedule_run(dashboard_id="rev-dash-uuid", schedule_id="sched-uuid")
 
-# 3. ONLY IF dvt_email_schedule_setup is in your tool list (case 2 above): get the
-#    statements an admin must run to make it fire on its own, and check state.
+# 3. Get the statements an admin must run to make it fire on its own, and check state.
 dvt_email_schedule_setup(dashboard_id="rev-dash-uuid", schedule_id="sched-uuid")
 # → grantsSql / createTaskSql / dropTaskSql, taskState: "absent"
 
-# 4a. Case 1 (the tool is absent) — tell the user: "Saved — Mondays 07:00 ET, and I sent
-#     one just now so you can check it.  It won't send on its own: press Run now, or ask
-#     me to, whenever you want it.  Automatic sending isn't available on this deployment
-#     yet."
-# 4b. Case 2 — tell the user: "Saved — Mondays 07:00 ET, and I sent one just now so you
-#     can check it.  It won't arrive on its own until an ACCOUNTADMIN runs these
-#     statements; once they have, the Monday send is fully automatic, chart images
-#     included."
+# 4. Tell the user: "Saved — Mondays 07:00 ET, and I sent one just now so you can check
+#    it.  It won't arrive on its own until an ACCOUNTADMIN runs these statements; once
+#    they have, the Monday send is fully automatic, chart images included."
 ```
 
 `recipients` on `dvt_email_schedule_update` **replaces** the whole set — it is not
