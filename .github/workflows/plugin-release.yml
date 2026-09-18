@@ -35,7 +35,11 @@ jobs:
     permissions:
       contents: write   # only this job pushes the tag
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4 (SHA-pinned; Dependabot bumps)
+      # SHA-pinned. Bumped by Dependabot in the PRIVATE source repo (getdvt/dvt
+      # .github/dependabot.yml, the github-actions lane at directory
+      # /plugins/.github/workflows — SEC-200); the public copy is re-rendered on merge.
+      # Do not edit here.
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
 
