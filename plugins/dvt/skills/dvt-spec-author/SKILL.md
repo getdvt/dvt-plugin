@@ -138,8 +138,8 @@ The full staged walk-through, with the rubric for each stage, is **Design flow**
 | `type` | Renders | Key `spec` fields |
 | --- | --- | --- |
 <!-- BEGIN generated chart-type table (make echarts / ADR-0022) — do not edit between markers -->
-| `chart:bar` / `chart:bar:horizontal` / `chart:bar:stacked` / `chart:bar:stacked-percent` | ECharts bar | `xAxis`, `yAxis`, `series[].dataField`, `series[].itemStyle.color`; stacked uses `categoryField`/`seriesField`/`valueField` |
-| `chart:line` / `chart:line:smooth` / `chart:line:step` / `chart:area` | ECharts line | `series[].dataField`, `series[].smooth`, `series[].lineStyle`, dual `yAxis` + `yAxisIndex`; `chart:area` adds `areaStyle` |
+| `chart:bar` / `chart:bar:horizontal` / `chart:bar:stacked` / `chart:bar:stacked-percent` | ECharts bar | `xAxis`, `yAxis`, `series[].dataField`, `series[].itemStyle.color`; stacked uses `categoryField`/`seriesField`/`valueField`. On `chart:bar`/`chart:bar:horizontal` (the stacked types use a different binder and are exempt) every `series[i]` must bind its own `dataField` (or inline `data`; a lone series may inherit a top-level `valueField`), and `xField`/`yField` beside `categoryField`/`valueField`/`series[].dataField` is a hard `binding` 422 (DVT-4427) |
+| `chart:line` / `chart:line:smooth` / `chart:line:step` / `chart:area` | ECharts line | `series[].dataField`, `series[].smooth`, `series[].lineStyle`, dual `yAxis` + `yAxisIndex`; `chart:area` adds `areaStyle`. A `series[i]` with no `dataField`/`data` fails validation (hard `binding` 422 — a lone series may inherit a top-level `valueField`, but `yField` does not rescue it), and `xField`/`yField` beside `categoryField`/`valueField`/`series[].dataField` is rejected as a contradictory binding (DVT-4427); the `xField`+`yField` shorthand is valid only when no such real binding is present |
 | `chart:pie` / `chart:donut` | ECharts pie | `series[].radius` (`["40%","70%"]` = donut), `series[].label` |
 | `chart:scatter` | ECharts scatter | `xField`, `yField`, `sizeField` (bubble), `labelField`; binds rows → `[x,y,size]` points |
 | `chart:effect-scatter` | ECharts effectScatter (passthrough) | scatter with ripple emphasis — `series[].rippleEffect`, inline or `dataField`-bound points; on geo: `coordinateSystem: 'geo'` — **On geo, `series[].coordinateSystem` must be set to `'geo'` explicitly — the compiler never injects it — and `geo.map` must name a registered map asset (ADR-0023); dvt bundles `USA`, `world`, `usa-counties`, `canada-provinces`, `uk-regions`, `eu-admin1` (case-sensitive). Other names need host-side `registerMapAsset`. Data points must carry inline `value: [lon, lat]` coordinates; category-axis values (the default cartesian shape) will not place points on the map.** |
@@ -271,13 +271,26 @@ schemas/tables/views created later — no re-grant needed.
 **Canonical cartesian form — author the measure as `series[].dataField`.** For the plain
 value families (`chart:bar`/`chart:line`/`chart:area`), the single authored form used by
 every dvt example, seed demo, and golden spec is an explicit `series[].dataField` (the
-category axis comes from the first returned column, or an explicit `categoryField`/`xField`).
-Author to that form so specs stay consistent across surfaces. The renderer *also* tolerates a
+category axis comes from the first returned column, or an explicit `categoryField`). Author
+to that form so specs stay consistent across surfaces. The renderer *also* tolerates a
 `series[]`-less **Core shorthand** — `valueField` (+`categoryField`) for bar, `yField`
-(+`xField`) for line/area — and synthesizes a single series from it (DVT-1085), but that is a
-render-time convenience, **not** the authored convention: prefer `series[].dataField`. (Note
-the nullish-coalescing edge the validator now flags: a present-but-empty `valueField: ""`
-wins over a set `yField` and renders blank — omit the field entirely rather than passing `""`.)
+(+`xField`) for line/area — and synthesizes a single series from it (DVT-1085), but that is
+a render-time convenience, **not** the authored convention: prefer `series[].dataField`.
+Since DVT-4427 the validator enforces the split on every cartesian-binder type as a hard
+`binding` 422 (`dvt_spec_validate` → `valid:false`; apply/create/patch → 422): (1) every
+`series[i]` must bind its own value column — `dataField`, non-empty inline `data`, or —
+only when there is exactly one series — a top-level `valueField`; passthrough shapes
+also bind (a non-empty series `nodes` array, a numeric `datasetIndex`, or any series
+once the spec carries a non-empty top-level `dataset`) — so a bare `{"type":"line"}`
+entry fails at `…/spec/series/<i>` under the panel's JSON pointer, and `yField` does
+**not** rescue it; and (2) `xField`/`yField` left beside
+`categoryField`/`valueField`/`series[].dataField` are rejected as contradictory
+bindings at `…/spec/xField`/`…/spec/yField`. `xField`/`yField` stay valid only while
+no such real binding is present.
+(`chart:bar:stacked`/`chart:bar:stacked-percent` use a different binder and are exempt from
+both rules.) (Note the nullish-coalescing edge the
+validator also flags: a present-but-empty `valueField: ""` wins over a set `yField` and
+renders blank — omit the field entirely rather than passing `""`.)
 
 **Always fully-qualify table names** as `database.schema.table` (e.g.
 `SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.ORDERS`). A connection may carry no default
