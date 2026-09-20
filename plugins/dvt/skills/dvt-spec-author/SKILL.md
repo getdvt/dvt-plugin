@@ -3920,7 +3920,7 @@ A dvt dashboard can email **itself** — not a link and not an attachment, but t
 inline PNG with a "View in dvt →" link (DVT-4264).  An interactive send runs
 `SYSTEM$SEND_EMAIL` on the **caller's own** Snowflake session, so it can never carry data
 its sender could not already see.  An unattended scheduled send reads its rows as the
-**task-owner role** the consumer's admin chose instead (see below), so its contents are
+**task-owner role** the consumer's editor chose instead (see below), so its contents are
 that role's, not its creator's.
 
 These routes exist **only in the Snowflake native app**.  Everywhere else — dvt Gallery,
@@ -3946,7 +3946,7 @@ This family is **disjoint** from `dvt_export_schedule_*` above: those deliver re
 report**.  The two REST surfaces do not share ids — a schedule id from one 404s on the
 other — so never pass an id between them.
 
-### A saved schedule does not send by itself (DVT-4489 / DVT-4300, ADR-0069)
+### A saved schedule sends by itself only once it is activated (DVT-4490 / DVT-4300, ADR-0069)
 
 **This is the one thing you must not get wrong**, and what "by itself" even means depends
 on the install — so check, do not assume.  **Are the `dvt_email_schedule_*` tools in your
@@ -3963,32 +3963,54 @@ the filters the user is looking at.  An earlier release listed the schedule tool
 nothing fired them; that was withdrawn precisely because it let an agent tell a user their
 report was scheduled when it never would be.
 
-**Case 2 — they are present: a schedule fires once an admin creates its task.**  dvt cannot
-create that task: it lives in the consumer's own database under a role their admin picks,
-and it is what gives the 07:00 run a Snowflake identity to read the data as (ADR-0069
-declined a standing "act as this user" grant for dvt).  Until the admin runs the
-statements the schedule is saved, previewed, and **nothing arrives**;
-`dvt_email_schedule_run` still sends now, on your own session.  The result of every
-schedule tool carries an `automaticSending` sentence saying the same thing.
+**Case 2 — they are present: a saved schedule fires only once its Snowflake task
+exists.**  dvt does not create that task from an API or MCP call — activating one is a
+UI action, gated on `dashboard:write` (an editor, not an admin).  In the Schedule tab, an
+editor clicks **Activate automatic sending**, picks a warehouse (defaulting to their own
+`CURRENT_WAREHOUSE`), and dvt creates and resumes the task on that editor's own live
+Snowflake session — never a standing dvt credential (ADR-0069).  `CURRENT_ROLE()` at the
+moment they click becomes the task's owning role, which is what gives the 07:00 run a
+Snowflake identity to read the data as.  The one-time grants that role needs run first,
+best-effort; any grant the clicking editor's Snowflake role cannot issue comes back
+pre-filled as a one-time block of SQL for an admin to run, after which the same click
+finishes activation.  The manual path still exists for accounts where the clicking
+editor's role lacks the privileges outright: copy the generated statements from "Show
+SQL" (or `dvt_email_schedule_setup`) and hand them to someone who can run them by hand —
+same statements, same task, just not one-click.
 
-In case 2, `dvt_email_schedule_setup` returns those statements — grants, `CREATE TASK`,
-`DROP TASK` — and `taskState`, which has two live values: `confirmed` (dvt has seen that
-task drive a run) and `absent` (dvt has seen no run — which covers both "nothing created"
-AND "created but not yet fired", since dvt cannot tell them apart, so never report it as
-"nothing was created").  **Only at `confirmed` may you say the report will arrive by
-itself.**  You cannot run them — hand them over for an ACCOUNTADMIN; the Schedule tab
-shows the same text.  One limit to pass on: the task's `SCHEDULE` **must match** the
-cadence dvt generated or the run is refused (`no-scheduled-occurrence`), so after a
-cadence change have the admin re-run the statements.  dvt sees only whether the task has
-called in and when it last fired — it cannot edit, disable or drop a task it does not
-own, and deleting a schedule leaves the task in place.
+There is no `dvt_email_schedule_activate` MCP tool yet.  An agent can create and inspect a
+schedule and fetch its setup SQL via `dvt_email_schedule_setup`, but it cannot activate
+one itself — that is a UI/editor action today, and a follow-up, not something this tool
+family does.  Say so plainly rather than implying an agent can turn a schedule on.  Until
+a task exists — by either path — the schedule is saved and previewed and **nothing
+arrives**; `dvt_email_schedule_run` still sends now, on your own session.  The result of
+every schedule tool carries an `automaticSending` sentence saying the same thing.
+
+In case 2, `dvt_email_schedule_setup` returns the manual-path statements — grants,
+`CREATE TASK`, `DROP TASK` — and `taskState`, which has three live values: `absent` (no
+task exists yet, by either path), `declared` (dvt itself created and resumed the task via
+Activate automatic sending — dvt has not yet seen it fire), and `confirmed` (the task has
+called in — dvt has seen it drive a run).  **Only at `confirmed` may you say the report
+will arrive by itself**; `declared` means activation succeeded, not that a send has
+happened yet.  One limit to pass on: the task's `SCHEDULE` **must match** the cadence dvt
+generated or the run is refused (`no-scheduled-occurrence`).  On a one-click-activated
+task (dvt knows its `taskWarehouse`), a cadence change re-issues the task automatically —
+no separate re-activation step.  A hand-pasted task (no known `taskWarehouse`) cannot be
+re-issued this way: the cadence edit 409s, and the fix is Deactivate, then edit, then
+Activate (or, on the manual path, re-run the statements with the new cadence).  dvt sees
+only whether the task has called in and when it last fired — it cannot edit or disable a
+task it does not own, but deleting a schedule does remove its task (deactivated first,
+same as one-click Deactivate).
 
 Either way, a report sent from a schedule *does* embed chart images, the same as an
 interactive send — the render is server-side, from the rows dvt already holds (in case 2,
 the ones the task staged for that run, plus any panel carrying its own inline
 `data.rows`, whose `query` is kept for the SQL inspector and is never executed), under the
 same limits (at most 4 chart images; a chart that fails or would blow the 700 KB body
-budget falls back to its "view in dvt" note instead).  (Separate, still true: **artifact**
+budget falls back to its "view in dvt" note instead).  A scheduled send re-reads
+(re-queries) every panel that carries a `query`, even when the spec also carries baked
+`data.rows` beside it (DVT-4476, Option B) — baked rows are only what a scheduled send
+actually uses for a panel that has no query at all.  (Separate, still true: **artifact**
 export schedules run off a cron worker wired only in dvt's cloud editions — nothing fires
 those in the native app.)
 
