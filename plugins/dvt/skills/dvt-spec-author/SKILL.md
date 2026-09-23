@@ -3580,12 +3580,29 @@ grant inherited caller select on all views in database <db> to application <app>
 
 | Outcome | Shape |
 |---|---|
-| succeeded | `{status:"succeeded", columns, rows, rowCount, …}` |
+| succeeded | `{status:"succeeded", columns, rows, rowCount, returnedRows, nextCursor?, rowTruncated?, …}` |
 | failed | `{status:"failed", error, elapsed_ms}` |
 | canceled | `{status:"canceled", elapsed_ms}` |
 
 If a query succeeded but its result cache has since expired (rare), the record is returned
 as-is with a `note` advising a re-run — there is no result to surface in that case.
+
+**A succeeded result can be PARTIAL — on the fast path too.** `rows` is one page, not
+necessarily the whole result, and three different facts say so. Do not conflate them:
+
+| field | means |
+|---|---|
+| `returnedRows` | how many rows this page holds (`limit`, default 1000, max 10000) |
+| `nextCursor` | more rows exist — pass it back as `cursor` to get the next page |
+| `rowTruncated` | a single row was too wide for the response budget, so its oversized cell values were elided — each elided cell carries an explicit marker (`…<N chars elided>`, `…<value omitted: N chars>` or `…<N more cells omitted>`). Elided content is NOT recoverable by paging; narrow the query or select fewer columns |
+| `truncated` | something else entirely: the WAREHOUSE result hit the engine's row ceiling, so `rowCount` is itself a prefix |
+
+**Prefer narrowing the query over walking pages.** Paging re-runs the query — there is no
+server-side result handle on the fast path, and a caller's-rights (`Host Snowflake`)
+connection is not cacheable at all — so each page is a separate, separately-billed
+warehouse execution, and the row order is only stable across pages if the query has a
+deterministic `ORDER BY`. Add `ORDER BY` + `LIMIT`, or aggregate, instead of paging a wide
+scan. This tool is an authoring/validation primitive, not a data-exploration surface.
 
 **Errors.** A 409 `oauth-consent-required` means the source needs OAuth re-authorization in
 the dvt UI before queries can run. A 403 means the caller's API key lacks permission to
