@@ -1416,8 +1416,12 @@ band instead on either.
 >   `python` action. The Snowflake source goes on the **panel's** `data.sourceId`,
 >   not inside the action. Leave it out and the spec still saves, but the click
 >   fails with "This button isn't attached to a data source yet.":
->   `{ "type": "action-button", "data": { "sourceId": "<snowflake source id>" }, "spec": { "style": { "label": "…" }, "action": { "kind": "python", "code": "…", "params"?, "packages"?, "result"?: { "mode": "download" | "toast" | "refresh", "filename"? }, "confirm"? } } }`
->   (`result` omitted = `toast`). Do not author a python panel for it.
+>   `{ "type": "action-button", "data": { "sourceId": "<snowflake source id>" }, "spec": { "style": { "label": "…" }, "action": { "kind": "python", "code": "…", "params"?, "packages"?, "result"?: { "mode": "download" | "toast" | "refresh", "filename"?, "message"? }, "confirm"? } } }`
+>   (`result` omitted = `toast`). For `download`, `main` returns `bytes` or
+>   `{"content": bytes, "filename": "report.xlsx"}` to name the file; for
+>   `toast`/`refresh`, a `str` returned by `main` (first line, ≤ 280 chars)
+>   becomes the status text and overrides `result.message`. Do not author a
+>   python panel for it.
 > - Never replace a working button (or its python action) with a python panel,
 >   and never add a python panel as the "output" of a button. Buttons cannot
 >   target a panel, so the result is a button that does nothing.
