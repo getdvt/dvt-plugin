@@ -1428,6 +1428,16 @@ band instead on either.
 > - The placeholder a python panel shows is not a setting or an edition switch.
 >   Do not tell users to ask the provider to "enable execution"; nothing can be
 >   enabled until DVT-4260 ships the renderer.
+> - Test the button before handing it over: call `dvt_action_run` (`preview: true`
+>   first to see the bound request, then a real run — confirm with the user
+>   first, it spends credits and may write). It runs the action exactly as a
+>   click would, under the dashboard's source-connection identity (caller's
+>   rights or the shared service credential — see the identity paragraph
+>   below), — an MCP caller is a human-bound `agent` principal, admitted by
+>   ADR-0084's 2026-09-23 amendment; a service-credential run is refused
+>   once DVT-4588 enforces the identity gate — and returns the result shape
+>   or the failure with its `grants` — never tell the user to click and
+>   paste the error back (DVT-4685).
 
 Use `python` when SQL genuinely cannot express the compute — a stats routine, a
 custom transform, a chart matplotlib can render but ECharts can't. It is a
