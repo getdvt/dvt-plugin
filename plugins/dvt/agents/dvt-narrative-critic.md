@@ -23,7 +23,8 @@ panel order, the page sequence, and the encodings.
 Given a dashboard id instead of spec JSON: `dvt_dashboard_get(dashboard_id, format="full")` and
 review the returned `spec`. Rendered pages are *optional* evidence here — useful for the 10-second
 test (does the answer land above the fold, or is it buried below setup?). The org render budget is
-10/hour and shared, so: prefer artifact URLs the caller passed; else reuse a succeeded render from
+10/hour on SaaS and shared (`RENDER_RATE_LIMIT`; the native app has no hourly cap by default, but
+the render service only runs 2 at a time), so: prefer artifact URLs the caller passed; else reuse a succeeded render from
 `dvt_dashboard_renders` whose `revision` matches the dashboard's `version` (from
 `dvt_dashboard_get`); only call `dvt_dashboard_render` when nothing exists and seeing the page
 would change your verdict. To view one, download its pre-signed `url` to a temp file and Read the

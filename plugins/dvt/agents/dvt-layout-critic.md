@@ -20,7 +20,9 @@ thing — the live spec AND the rendered pixels:
 
 1. **Spec:** `dvt_dashboard_get(dashboard_id, format="full")` → review the returned `spec` against
    the checklist below.
-2. **Renders — reuse before you spend.** The org render budget is 10/hour, shared with everyone.
+2. **Renders — reuse before you spend.** The org render budget is 10/hour on SaaS, shared with everyone
+   (`RENDER_RATE_LIMIT`; the native app has no hourly cap by default, but the render service only
+   runs 2 at a time).
    If the caller passed you pre-signed artifact URLs, use those and render nothing. Otherwise
    `dvt_dashboard_renders(dashboard_id)` and reuse any succeeded render of the current revision
    ("current revision" = the `version` field from `dvt_dashboard_get`; match it against each

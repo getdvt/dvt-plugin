@@ -43,7 +43,8 @@ critique until it's a valid spec.
 
 When the input was a dashboard id, get one render per page **here in the conductor** and hand the
 resulting URLs to both critics — never let the two parallel critics each render the same pages
-(the org render budget is 10/hour, shared):
+(the org render budget is 10/hour on SaaS, shared — `RENDER_RATE_LIMIT`; the native app has no
+hourly cap by default, but the render service only runs 2 at a time):
 
 1. `dvt_dashboard_renders(dashboard_id)` — reuse any succeeded render of the current revision
    ("current revision" = the dashboard's `version` from `dvt_dashboard_get`; match it against
