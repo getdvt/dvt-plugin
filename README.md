@@ -79,8 +79,10 @@ LICENSE                         Apache-2.0
 > vulnerability reporting on this repo.
 
 The bundled spec-authoring skill has a single canonical source in `getdvt/dvt`
-(`web/public/dvt-spec-authoring-skill.md`) and is generated into the tree at publish time, so the
-published copy cannot drift from it.
+(`web/public/dvt-spec-authoring-skill.md` plus its `references/` dir) and is generated into the tree
+at publish time, so the published copy cannot drift from it. `SKILL.md` is the authoring method;
+`references/` holds the detail it loads on demand (panel types, layout modes, theme, data sources,
+exports and email).
 
 Maintainers: see [RELEASING.md](./RELEASING.md) for the version + tag flow.
 

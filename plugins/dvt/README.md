@@ -51,9 +51,11 @@ sync with dvt's own design-review rubric. They critique the **spec** (cheap, pre
 given a built dashboard id — the **actual rendered pages**, fetched as pre-signed artifact URLs and
 viewed from a temp file so no base64 image bytes ever land in context.
 
-`skills/dvt-spec-author/SKILL.md` has a single canonical source in the private dvt repo
-(`web/public/dvt-spec-authoring-skill.md`) and is generated into this tree when the plugin is
-published, so the shipped copy cannot drift from canonical. Edit it there, not here.
+`skills/dvt-spec-author/SKILL.md` (the authoring method) and `skills/dvt-spec-author/references/`
+(the detail it loads on demand — panel types, layout modes, theme, data sources, exports and email)
+have a single canonical source in the private dvt repo (`web/public/dvt-spec-authoring-skill.md` and
+`web/public/dvt-spec-authoring-skill/references/`) and are generated into this tree when the plugin
+is published, so the shipped copy cannot drift from canonical. Edit them there, not here.
 
 ## Advanced / manual setup
 

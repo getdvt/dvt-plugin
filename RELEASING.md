@@ -47,8 +47,9 @@ There is nothing to publish afterwards — the marketplace resolves the repo liv
 
 ## The bundled authoring skill
 
-`plugins/dvt/skills/dvt-spec-author/SKILL.md` is generated at publish time from its single canonical
-source, `web/public/dvt-spec-authoring-skill.md` in `getdvt/dvt`. Edit it **there**.
+`plugins/dvt/skills/dvt-spec-author/SKILL.md` and its `references/` dir are generated at publish time
+from their single canonical source, `web/public/dvt-spec-authoring-skill.md` and
+`web/public/dvt-spec-authoring-skill/references/` in `getdvt/dvt`. Edit them **there**.
 
 It used to be a second copy checked into this repo, kept honest by a `skill-drift` job that compared
 it against `demo.dvt.dev` (the public deploy) because CI here had no token into the private repo.
