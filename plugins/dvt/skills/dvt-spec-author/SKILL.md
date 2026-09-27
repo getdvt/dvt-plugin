@@ -29,8 +29,8 @@ app origin) and bundles it with every reference.
 Classify the request first; the two paths differ a lot in cost and risk.
 
 - **Surgical edit** — one named element, one specific change. Read it with `dvt_element_get` and apply
-  `dvt_element_patch`. A change to a page itself (title, background, theme, layout) goes through
-  `dvt_page_list` + `dvt_page_patch`; a change to the dashboard's documentation (`spec.meta`: brief,
+  `dvt_element_write(action="patch")`. A change to a page itself (title, background, theme, layout) goes through
+  `dvt_page_list` + `dvt_page_write(action="patch")`; a change to the dashboard's documentation (`spec.meta`: brief,
   keyQuestions, assumptions, per-panel provenance) goes through `dvt_dashboard_get` +
   `dvt_dashboard_meta_patch` (preview first; `reason` is required). These routes keep every element's id
   and revision history, which re-sending the whole spec would not. Locate ids cheaply with
@@ -154,7 +154,7 @@ If an option isn't in a served catalog, it doesn't exist — never offer or auth
 
 ### 4b. Persisting the build (ADR-0057 Amendment 1)
 
-Interactive: apply a shell (`meta`, `theme`, first page with `panels: []`), then `dvt_element_create`
+Interactive: apply a shell (`meta`, `theme`, first page with `panels: []`), then `dvt_element_write(action="create")`
 each panel with an explicit stable `slug` so a retried create is idempotent (a 409 slug-taken means it
 landed), render once per page (the render budget is 10/hour per org on SaaS; the native app has no
 hourly cap by default), and finish with `dvt_spec_validate` and `dvt_dashboard_get(format="concise")`.
