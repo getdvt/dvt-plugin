@@ -185,15 +185,15 @@ the table break the tie.
 htmlSlots shipped via ADR-0059 (schema #708, renderer #713) — it is available today, not a future
 option; see **HTML-slots mode** above for the full authoring contract.
 
-**`dvt_page_reference` catalogs the modes; the pick stays rubric-driven (founder decision, DVT-857,
-2026-07-02, superseding the DVT-831 no-catalog-tool call).** Call `dvt_page_reference()` with no arguments to enumerate the page layout modes
+**`dvt_reference(topic="page")` catalogs the modes; the pick stays rubric-driven (founder decision, DVT-857,
+2026-07-02, superseding the DVT-831 no-catalog-tool call).** Call `dvt_reference(topic="page")` with no `name` to enumerate the page layout modes
 (`grid`, `canvas`, `htmlSlots`) with their `whenToUse`/summary — that catalog is what tells you the
 modes exist and gives fit guidance; it does not choose one for you. The actual pick still runs
 through the rubric above (build style + brief characteristics). There is still **no
 `dvt_layout_recommend`** MCP tool — a recommender that maps build style → format automatically
 remains out of scope. Don't add one on your own initiative.
 
-**Let the chart reference drive selection.** Call `dvt_chart_reference()` with no arguments to get the catalog — every chart type with a one-line `whenToUse` and `dataShapes` tags (`time-series`, `part-to-whole`, `correlation`, `flow`, `distribution`, `hierarchy`, `geo`, `categorical-comparison`, `ranking`, `multivariate`, `network`, `single-kpi`). Match your profiled data's shape to a type, then call `dvt_chart_reference(chart_type)` for its option summary and `dvt_chart_reference(chart_type, property_path)` to drill into a specific property before you author it. Validate the result with `dvt_spec_validate`.
+**Let the chart reference drive selection.** Call `dvt_reference(topic="chart")` with no `name` to get the catalog — every chart type with a one-line `whenToUse` and `dataShapes` tags (`time-series`, `part-to-whole`, `correlation`, `flow`, `distribution`, `hierarchy`, `geo`, `categorical-comparison`, `ranking`, `multivariate`, `network`, `single-kpi`). Match your profiled data's shape to a type, then call `dvt_reference(topic="chart", name=chart_type)` for its option summary and `dvt_reference(topic="chart", name=chart_type, property_path=property_path)` to drill into a specific property before you author it. Validate the result with `dvt_spec_validate`.
 
 ### 4a. Design flow — ground every choice in a served catalog (no guessing)
 
@@ -204,24 +204,24 @@ serve. Work the stages in order; each stage's output constrains the next.
 
 | Stage | Tool | Grounds |
 |---|---|---|
-| 0. Dashboard | `dvt_dashboard_reference()` | What the top-level dashboard spec shape looks like |
-| 1. Page | `dvt_page_reference()` | Which page layout modes exist, with fit guidance |
-| 2. Blocks & charts | `dvt_chart_reference()` / `dvt_block_reference()` | Which panel types fit the data shapes and key questions |
-| 3. Specs | `dvt_dashboard_reference(section, property_path)` / `dvt_chart_reference(chart_type, property_path)` / `dvt_block_reference(block_type, property_path)` / `dvt_page_reference(page_type, property_path)` | Exactly which properties exist on the dashboard, chosen page, or panel |
-| 4. Interactivity | `dvt_interaction_reference()` | Which interactivity surface is actually shipped |
+| 0. Dashboard | `dvt_reference(topic="dashboard")` | What the top-level dashboard spec shape looks like |
+| 1. Page | `dvt_reference(topic="page")` | Which page layout modes exist, with fit guidance |
+| 2. Blocks & charts | `dvt_reference(topic="chart"\|"block")` | Which panel types fit the data shapes and key questions |
+| 3. Specs | `dvt_reference(topic=..., name=..., property_path=...)` for dashboard/chart/block/page | Exactly which properties exist on the dashboard, chosen page, or panel |
+| 4. Interactivity | `dvt_reference(topic="interaction")` | Which interactivity surface is actually shipped |
 
-**0 — Dashboard.** Call `dvt_dashboard_reference()` with no arguments to enumerate the top-level
+**0 — Dashboard.** Call `dvt_reference(topic="dashboard")` with no `name` to enumerate the top-level
 dashboard spec keys (`meta`, `theme`, `layout`, `panels`, `pages`, `tabBar`, `cache`, ...) with
 `required`/`whenToUse` guidance and a minimal valid skeleton. This is the shape everything else
 below hangs off of — ground it before picking a page mode.
 
-**1 — Page.** Call `dvt_page_reference()` with no arguments to enumerate the available page
+**1 — Page.** Call `dvt_reference(topic="page")` with no `name` to enumerate the available page
 layout modes and their fit guidance. Where the build-style answer (§3b) doesn't already force
 the pick, present the modes as options to the user before committing. Choose using the
-layout-format rubric above, then call `dvt_page_reference(mode)` to drill into the chosen mode's
+layout-format rubric above, then call `dvt_reference(topic="page", name=mode)` to drill into the chosen mode's
 declaration shape.
 
-**2 — Blocks & charts.** Call `dvt_chart_reference()` / `dvt_block_reference()` to match panel
+**2 — Blocks & charts.** Call `dvt_reference(topic="chart"|"block")` to match panel
 types to the data shapes you profiled (step 1) and the key questions you set (step 2). Before
 authoring the full spec, propose a sample layout — a panel-by-panel sketch (type, purpose, rough
 position) — and get user confirmation.
@@ -231,7 +231,7 @@ sections from stage 0 (`meta`, `theme`, ...), drill down with `property_path` to
 which properties exist. Declare only served properties — never author a field you haven't
 confirmed exists. Validate with `dvt_spec_validate`.
 
-**4 — Interactivity.** Call `dvt_interaction_reference()` with no arguments to enumerate the
+**4 — Interactivity.** Call `dvt_reference(topic="interaction")` with no `name` to enumerate the
 shipped interactivity surface (filter controls, brush cross-filter, context-menu actions, drill,
 params). Start from the **default interactivity package** in Exploration patterns above (scoped
 filter + context menus on hero/tables + drills where detail exists) and run the per-control

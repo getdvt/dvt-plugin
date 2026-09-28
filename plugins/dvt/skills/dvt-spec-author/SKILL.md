@@ -14,9 +14,9 @@ Builder (`/builder`) to see it render live.
 ## How to use this skill
 
 This file is the authoring method. It does not list panel shapes or properties — the engine
-serves those, so ground every choice in its catalog tools, in order: `dvt_dashboard_reference` →
-`dvt_page_reference` → `dvt_chart_reference` / `dvt_block_reference` → `dvt_interaction_reference`.
-Each returns a catalog with no arguments and drills into a type with one; never guess a shape.
+serves those, so ground every choice in `dvt_reference`, in staged `topic` order: `dashboard` →
+`page` → `chart` / `block` → `interaction`.
+Each returns a catalog with no `name` and drills into a type with one; never guess a shape.
 The detailed reference is loaded on demand (listed at the end) from wherever this file itself came
 from: plugin tree `references/<name>.md`, web `/dvt-spec-authoring-skill/references/<name>.md` on the
 host that served this file, or MCP `dvt://skill/spec-authoring/references/<name>`. Need the whole
@@ -135,19 +135,19 @@ headline preattentive, and keep roughly 8–12 panels per page.
 
 Default to `grid` unless the user explicitly asks otherwise. HTML-slots mode (`layout.mode: "htmlSlots"`)
 is shipped: an author-written HTML page where live panels mount at `<dvt-slot ref="panelId">` markers.
-`dvt_page_reference` catalogs the modes; the pick stays rubric-driven (DVT-857). There is no
+`dvt_reference(topic="page")` catalogs the modes; the pick stays rubric-driven (DVT-857). There is no
 `dvt_layout_recommend` tool, and you should not build one.
 
 ### 4a. Design flow — ground every choice in a served catalog
 
 Work five stages, each grounded in a tool, and pick only from what it returns:
 
-0. Dashboard — `dvt_dashboard_reference()` for the top-level shape and a minimal skeleton.
-1. Page — `dvt_page_reference()`, then drill into the chosen mode.
-2. Blocks & charts — `dvt_chart_reference()` / `dvt_block_reference()` matched to your data shapes and
+0. Dashboard — `dvt_reference(topic="dashboard")` for the top-level shape and a minimal skeleton.
+1. Page — `dvt_reference(topic="page")`, then drill into the chosen mode.
+2. Blocks & charts — `dvt_reference(topic="chart"|"block")` matched to your data shapes and
    questions; then propose a sample layout (type, purpose, rough position) and get it confirmed.
 3. Specs — drill each chosen type with `property_path`; declare only served properties.
-4. Interactivity — `dvt_interaction_reference()`; include the default package (scoped filter, context
+4. Interactivity — `dvt_reference(topic="interaction")`; include the default package (scoped filter, context
    menus, drills) in the sketch, or record `"Interactivity: none — <reason>"` in `meta.decisions`.
 
 If an option isn't in a served catalog, it doesn't exist — never offer or author it.

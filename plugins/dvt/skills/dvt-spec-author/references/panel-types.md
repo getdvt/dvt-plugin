@@ -5,25 +5,25 @@
 
 ## Panel types
 
-Five MCP reference tools ground the authoring flow in what's actually served, never
-prose recall: `dvt_dashboard_reference` for the top-level dashboard spec shape itself,
-`dvt_chart_reference` for every `chart:*` type (option summary +
-property-path drill-down, sourced from ECharts' own docs), `dvt_block_reference` for
+One MCP tool, `dvt_reference(topic=...)`, grounds the authoring flow in what's
+actually served, never prose recall: `topic="dashboard"` for the top-level dashboard
+spec shape itself, `topic="chart"` for every `chart:*` type (option summary +
+property-path drill-down, sourced from ECharts' own docs), `topic="block"` for
 the non-chart, dvt-native block types (its catalog is the authoritative, current
 list of which of those it serves a dedicated property reference for today, since
 coverage is expected to grow (DVT-2734); same catalog → type-summary →
-property-path drill-down shape), `dvt_page_reference` for the available page layout modes, and
-`dvt_interaction_reference` for the shipped interactivity surface (filters, brush,
-context-menu actions, drill, params). Call the matching one before authoring an
-unfamiliar type — see **Design flow** below for how the five compose into a staged
+property-path drill-down shape), `topic="page"` for the available page layout modes, and
+`topic="interaction"` for the shipped interactivity surface (filters, brush,
+context-menu actions, drill, params). Call with the matching topic before authoring an
+unfamiliar type — see **Design flow** below for how the five topics compose into a staged
 build.
 
 **Work them in this staged order — each stage's answer constrains the next:**
-`dvt_dashboard_reference()` for the top-level dashboard shape → `dvt_page_reference()`
-for the page mode → `dvt_chart_reference()` / `dvt_block_reference()` for panel types
-→ `dvt_interaction_reference()` for interactivity — any of those five with a
+`dvt_reference(topic="dashboard")` for the top-level dashboard shape → `dvt_reference(topic="page")`
+for the page mode → `dvt_reference(topic="chart"|"block")` for panel types
+→ `dvt_reference(topic="interaction")` for interactivity — any of those five topics with a
 `property_path` for the exact properties a chosen type accepts. Each returns a catalog
-with no arguments; call it again with its discriminator (`section`, `chart_type`,
+with no `name`; call it again with `name` (the old per-tool discriminator: `section`, `chart_type`,
 `block_type`, `page_type`, or `interaction_type`) to drill in. **If an option isn't in a
 served catalog, it doesn't exist — never offer it to the user and never author it.**
 The full staged walk-through, with the rubric for each stage, is **Design flow**
