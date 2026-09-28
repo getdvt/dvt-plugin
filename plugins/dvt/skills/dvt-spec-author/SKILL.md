@@ -34,7 +34,7 @@ Classify the request first; the two paths differ a lot in cost and risk.
   keyQuestions, assumptions, per-panel provenance) goes through `dvt_dashboard_get` +
   `dvt_dashboard_meta_patch` (preview first; `reason` is required). These routes keep every element's id
   and revision history, which re-sending the whole spec would not. Locate ids cheaply with
-  `dvt_dashboard_get(format="concise")` or `dvt_dashboard_docs`, never a full-spec read. Re-send the spec
+  `dvt_dashboard_get(format="concise")` or `dvt_dashboard_get(view="docs")`, never a full-spec read. Re-send the spec
   only when a patch route refuses the edit (a `layout.mode` change, a `legacy-dashboard` 409).
 - **Full build** — something new, exploratory, or a restructure. Run the method below.
 

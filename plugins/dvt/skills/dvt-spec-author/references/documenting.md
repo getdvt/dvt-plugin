@@ -61,7 +61,7 @@ Use **exposed fields** for caveats, source attribution, and narrative context th
 
 ### Element intent and assumptions (`meta.panels[id]`)
 
-Per-element documentation lives in the dashboard manifest at `meta.panels`, keyed by panel `id`. These fields are **agent-facing** — never rendered in the UI, read over `dvt_dashboard_docs`. They let a future agent understand what decision each panel informs and what analytical choices were made.
+Per-element documentation lives in the dashboard manifest at `meta.panels`, keyed by panel `id`. These fields are **agent-facing** — never rendered in the UI, read over `dvt_dashboard_get(view="docs")`. They let a future agent understand what decision each panel informs and what analytical choices were made.
 
 ```jsonc
 {
@@ -90,9 +90,9 @@ Per-element documentation lives in the dashboard manifest at `meta.panels`, keye
 
 **Editing this documentation after the build** — everything on this page lives in `spec.meta`, and you can patch it in place with `dvt_dashboard_meta_patch` (see "Choosing your approach" above): dashboard-level fields at `/brief`, `/keyQuestions`, `/assumptions`, `/conclusions`, `/decisions`, `/findings`, `/readme`, `/dataAsOf`, and per-panel provenance at `/panels/{panelId}`. Reach for it whenever documentation is the only thing changing — re-applying the whole spec through `dvt_dashboard_apply_spec` just to correct a `purpose` string re-keys every element and resets its revision history, which is exactly what you want to avoid on an existing dashboard. `documentationStale` is server-set and cannot be patched at either level; `/createdBy` is immutable.
 
-### Researching existing dashboards with `dvt_dashboard_docs`
+### Researching existing dashboards with `dvt_dashboard_get(view="docs")`
 
-Before authoring a new dashboard that covers the same subject area as an existing one, call `dvt_dashboard_docs` to read the existing dashboard's full documentation tree. It returns:
+Before authoring a new dashboard that covers the same subject area as an existing one, call `dvt_dashboard_get(view="docs")` to read the existing dashboard's full documentation tree. It returns:
 
 - **`provenance`** — dashboard-level meta (brief, purpose, audience, keyQuestions, assumptions, conclusions, findings, tags, readme, decisions, dataAsOf).
 - **`pages[*].doc`** — per-page description, intent, assumptions, notes.
@@ -101,7 +101,7 @@ Before authoring a new dashboard that covers the same subject area as an existin
 The SQL is a **read-only reference** — dvt exposes it so you can understand exactly how each metric was built (joins, filters, grain, table names). dvt never executes it via this tool (ADR-0011). If you want to run the SQL, execute it yourself in your warehouse CLI (snowsql, psql, bq, etc.).
 
 ```
-dvt_dashboard_docs(dashboard_id="<uuid>")
+dvt_dashboard_get(dashboard_id="<uuid>", view="docs")
 ```
 
 **When to call it:**
