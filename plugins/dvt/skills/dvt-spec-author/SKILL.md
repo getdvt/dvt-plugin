@@ -204,7 +204,7 @@ served this file (dvt.dev / the app origin), bundles this file plus all of them.
 - `documenting.md` — self-documenting fields (`Page.doc`, `meta.panels`, provenance claims).
 - `data-sources.md` — `source_id`, table naming per source, `dvt_data_query` result shapes.
 - `exports-and-email.md` — scheduled exports, panel export, and emailing a report (Snowflake native
-  app). A scheduled email renders from rows dvt already holds: the task's staged rows, or a panel's own
-  authored inline `data.rows`.
+  app). A scheduled email renders from rows dvt already holds: what the shared dispatcher task
+  fetched for that send, or a panel's own authored inline `data.rows`.
 - `authoring-method-detail.md` — the full, unabridged method: edit routes and error codes,
   `renderSummary` semantics, the persist steps, the premium-polish checklist.

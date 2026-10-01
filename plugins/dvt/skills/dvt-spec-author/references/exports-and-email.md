@@ -334,9 +334,10 @@ A dvt dashboard can email **itself** — not a link and not an attachment, but t
 *as the mail body*: KPI and stat tiles and tables as inline HTML, each chart panel as an
 inline PNG with a "View in dvt →" link (DVT-4264).  An interactive send runs
 `SYSTEM$SEND_EMAIL` on the **caller's own** Snowflake session, so it can never carry data
-its sender could not already see.  An unattended scheduled send reads its rows as the
-**task-owner role** the consumer's editor chose instead (see below), so its contents are
-that role's, not its creator's.
+its sender could not already see.  An unattended scheduled send instead reads its rows as
+the **dispatcher task's owning role** (see below) — one shared role an admin chose for the
+whole consumer, not each schedule's own creator — so its contents are that role's, not the
+person who activated the schedule.
 
 These routes exist **only in the Snowflake native app**.  Everywhere else — dvt Gallery,
 self-host — every tool below returns a 404 whose `error.meaning` says so; read that
@@ -350,11 +351,11 @@ field before telling a user their dashboard is missing.
 | `dvt_email_schedule_update`  | write   | `dashboard:write` | **Usually absent.** Enable/disable, move the cadence, or **replace** the recipient set |
 | `dvt_email_schedule_delete`  | write   | `dashboard:write` | **Usually absent.** Permanently delete a schedule |
 | `dvt_email_schedule_run`     | write (sends mail) | `dashboard:write` + `data:query` + `data:export` | **Usually absent.** Send a saved schedule's report now, on your session |
-| `dvt_email_schedule_setup`   | read    | `dashboard:write` | **Usually absent.** The statements a Snowflake **admin** runs once to create the consumer-owned task that fires a schedule, plus its `taskState` |
+| `dvt_email_schedule_setup`   | read    | `dashboard:write` | **Usually absent.** The one-time statements a Snowflake **admin** runs to create (or update) the shared dispatcher task that fires every activated schedule, plus this schedule's `taskState` |
 
 Only `dvt_dashboard_email` is on every install.  The six `dvt_email_schedule_*` tools are
-registered **together or not at all**, and as dvt ships today they are **not registered**
-— see the section below before you tell anyone a report can be scheduled.
+registered **together or not at all** — on an install where they are absent, see the
+section below before you tell anyone a report can be scheduled.
 
 This family is **disjoint** from `dvt_export_schedule_*` above: those deliver recurring
 **PDF/PNG artifact** exports by email or webhook; these deliver the **inline HTML
@@ -368,8 +369,8 @@ on the install — so check, do not assume.  **Are the `dvt_email_schedule_*` to
 tool list?**  That one question separates the two cases; all six of them are registered
 together or not at all, so any one of them answers it.
 
-**Case 1 — they are absent: this deployment has no email schedules.**  This is how dvt
-ships today.  There is no cadence to save, and every
+**Case 1 — they are absent: this deployment has no email schedules.**  This is how it
+behaves on an install where they are absent.  There is no cadence to save, and every
 `/v1/dashboards/{id}/email-schedules` route answers 404 `feature-disabled` if something
 calls one anyway.  Do not describe a workaround and do not offer to "set one up" — say so
 plainly: "This deployment emails a report on demand, but it can't schedule one."  What you
@@ -378,54 +379,73 @@ the filters the user is looking at.  An earlier release listed the schedule tool
 nothing fired them; that was withdrawn precisely because it let an agent tell a user their
 report was scheduled when it never would be.
 
-**Case 2 — they are present: a saved schedule fires only once its Snowflake task
-exists.**  dvt does not create that task from an API or MCP call — activating one is a
-UI action, gated on `dashboard:write` (an editor, not an admin).  In the Schedule tab, an
-editor clicks **Activate automatic sending**, picks a warehouse (defaulting to their own
-`CURRENT_WAREHOUSE`), and dvt creates and resumes the task on that editor's own live
-Snowflake session — never a standing dvt credential (ADR-0069).  `CURRENT_ROLE()` at the
-moment they click becomes the task's owning role, which is what gives the 07:00 run a
-Snowflake identity to read the data as.  The one-time grants that role needs run first,
-best-effort; any grant the clicking editor's Snowflake role cannot issue comes back
-pre-filled as a one-time block of SQL for an admin to run, after which the same click
-finishes activation.  The manual path still exists for accounts where the clicking
-editor's role lacks the privileges outright: copy the generated statements from "Show
-SQL" (or `dvt_email_schedule_setup`) and hand them to someone who can run them by hand —
-same statements, same task, just not one-click.
+**Case 2 — they are present: a saved schedule sends by itself only once activated, and
+activation is a row write, not a Snowflake statement.**  Activate / Deactivate, cadence
+edits, and delete are all plain writes to the schedule row — dvt issues no Snowflake
+statement and asks for no warehouse.  In the Schedule tab, an editor with admin rights
+clicks **Activate automatic sending** (permission `schedule:activate`) and the row flips
+to activated.  There is no `dvt_email_schedule_activate` MCP tool: an agent can create,
+inspect, and test-run a schedule, and fetch the setup SQL via `dvt_email_schedule_setup`,
+but it cannot activate one itself — that is a UI/admin action today.  Say so plainly
+rather than implying an agent can turn a schedule on.
 
-There is no `dvt_email_schedule_activate` MCP tool yet.  An agent can create and inspect a
-schedule and fetch its setup SQL via `dvt_email_schedule_setup`, but it cannot activate
-one itself — that is a UI/editor action today, and a follow-up, not something this tool
-family does.  Say so plainly rather than implying an agent can turn a schedule on.  Until
-a task exists — by either path — the schedule is saved and previewed and **nothing
-arrives**; `dvt_email_schedule_run` still sends now, on your own session.  The result of
-every schedule tool carries an `automaticSending` sentence saying the same thing.
+**From snowflake-app patch 10; on earlier installs follow what `dvt_email_schedule_setup`
+returns.**  What actually sends an activated schedule is a single shared Snowflake task,
+**not** one task per schedule.  A Snowflake admin runs a one-time setup block once per consumer
+(shown in the Schedule tab, or returned by `dvt_email_schedule_setup` as
+`adminSetupSql`; dvt never runs it itself).  It creates one task,
+`DVT_SCHEDULES.PUBLIC.DVT_REPORT_DISPATCHER`, owned by a role the admin chooses
+(`DVT_SCHEDULE_OWNER` by default).  Every ~5 minutes the dispatcher asks the app what is
+due and sends it — grant that owning role only the reads you would let **every** schedule
+an admin activates see, since one role now backs all of them.  The same setup block has an
+"update the dispatcher" part to re-run after a dvt upgrade, and the consumer's own way to
+stop all automatic sending is `ALTER TASK DVT_SCHEDULES.PUBLIC.DVT_REPORT_DISPATCHER
+SUSPEND` — dvt sees only whether the dispatcher has called in, not how to disable a task it
+does not own.
 
-In case 2, `dvt_email_schedule_setup` returns the manual-path statements — grants,
-`CREATE TASK`, `DROP TASK` — and `taskState`, which has three live values: `absent` (no
-task exists yet, by either path), `declared` (dvt itself created and resumed the task via
-Activate automatic sending — dvt has not yet seen it fire), and `confirmed` (the task has
-called in — dvt has seen it drive a run).  **Only at `confirmed` may you say the report
-will arrive by itself**; `declared` means activation succeeded, not that a send has
-happened yet.  One limit to pass on: the task's `SCHEDULE` **must match** the cadence dvt
-generated or the run is refused (`no-scheduled-occurrence`).  On a one-click-activated
-task (dvt knows its `taskWarehouse`), a cadence change re-issues the task automatically —
-no separate re-activation step.  A hand-pasted task (no known `taskWarehouse`) cannot be
-re-issued this way: the cadence edit 409s, and the fix is Deactivate, then edit, then
-Activate (or, on the manual path, re-run the statements with the new cadence).  dvt sees
-only whether the task has called in and when it last fired — it cannot edit or disable a
-task it does not own, but deleting a schedule does remove its task (deactivated first,
-same as one-click Deactivate).
+`dvt_email_schedule_setup` returns `adminSetupSql` (the one-time dispatcher block above)
+and this schedule's `taskState`, which has three live values: `absent` (the schedule is not
+activated yet, or — once activated — the dispatcher has never been set up or has never seen
+this schedule), `declared` (the row is activated but
+the dispatcher has not yet fired it), and `confirmed` (the dispatcher has called in and
+driven a run for this schedule).  **Only at `confirmed` may you say the report will arrive
+by itself**; `declared` means activation succeeded, not that a send has happened yet.
+Until the row is activated — and the dispatcher exists — the schedule is saved and
+previewed and **nothing arrives**; `dvt_email_schedule_run` still sends now, on your own
+session.  The result of every schedule tool carries an `automaticSending` sentence saying
+the same thing.
+
+Widening a schedule's audience — recipients, cadence, anything a non-admin editor can
+change — after it was activated drops the row back to not-activated
+(`activationDropped` in the update result); re-activating is the same UI click.  A row's
+`changedSinceActivation` flag means the same thing going forward: "changed since
+activation — re-activate to include."  `nextRunAt` is when dvt will next **offer** the row
+to the dispatcher, not a delivery guarantee — the dispatcher's own ~5-minute cycle can run
+it up to five minutes late, and it is `null` whenever the row is not activated.  Email
+schedules have a 15-minute minimum cadence; an occurrence the dispatcher picks up more
+than 60 minutes late is skipped, not sent late.
+
+**Legacy per-report tasks are retired.**  Older installs may still have a
+`DVT_REPORT_<id>` task created for one dashboard's schedule; today's model never creates
+another one.  Activate the schedule in dvt (which now routes through the shared
+dispatcher), then drop the old task — `dvt_email_schedule_setup` names it as
+`legacyTaskName` and supplies the statement as `dropTaskSql` when one exists.
 
 Either way, a report sent from a schedule *does* embed chart images, the same as an
 interactive send — the render is server-side, from the rows dvt already holds (in case 2,
-the ones the task staged for that run, plus any panel carrying its own inline
-`data.rows`, whose `query` is kept for the SQL inspector and is never executed), under the
-same limits (at most 4 chart images; a chart that fails or would blow the 700 KB body
-budget falls back to its "view in dvt" note instead).  A scheduled send re-reads
+the ones the dispatcher fetched for that occurrence, plus any panel carrying its own
+inline `data.rows`, whose `query` is kept for the SQL inspector and is never executed),
+under the same limits (at most 4 chart images; a chart that fails or would blow the 700 KB
+body budget falls back to its "view in dvt" note instead).  A scheduled send re-reads
 (re-queries) every panel that carries a `query`, even when the spec also carries baked
 `data.rows` beside it (DVT-4476, Option B) — baked rows are only what a scheduled send
-actually uses for a panel that has no query at all.  (Separate, still true: **artifact**
+actually uses for a panel that has no query at all.  **A panel's query must be read-only**
+to survive that re-read: a single `SELECT` or `WITH … SELECT`, nothing else — a leading
+`(`, `$$`, `SHOW`/`CALL`, a second statement after `;`, or a call to `IDENTIFIER(...)`,
+`RESULT_SCAN`, `LAST_QUERY_ID`, `SYSTEM$...`, or a quoted stage name (`@"my stage"`) is
+refused even inside quotes, and the panel shows "Could not load" in the mailed report
+instead — use a view alias or an unquoted stage name (a column merely *named* like a
+denied keyword can be double-quoted and is fine).  (Separate, still true: **artifact**
 export schedules run off a cron worker wired only in dvt's cloud editions — nothing fires
 those in the native app.)
 
@@ -499,6 +519,7 @@ user asks for a recurring report there, say it is not offered and send one now w
 ```
 # 1. Save the cadence.  preset kinds: daily | weekly | monthly | hourly;
 #    dayOfWeek 0=Sunday…6=Saturday refines weekly, dayOfMonth 1–28 refines monthly.
+#    Email schedules have a 15-minute minimum cadence.
 dvt_email_schedule_create(
   dashboard_id="rev-dash-uuid",
   recipients=["dana@example.com"],
@@ -506,18 +527,20 @@ dvt_email_schedule_create(
   timezone="America/New_York",
   title="Monday revenue digest",
 )
-# → id, normalised cron "0 7 * * 1", nextRunAt (UTC)
+# → id, normalised cron "0 7 * * 1", nextRunAt: null (not activated yet)
 
 # 2. Prove it actually delivers — the only way to test the recipient list.
 dvt_email_schedule_run(dashboard_id="rev-dash-uuid", schedule_id="sched-uuid")
 
-# 3. Get the statements an admin must run to make it fire on its own, and check state.
+# 3. Check whether the shared dispatcher is set up yet, and get its one-time admin SQL.
 dvt_email_schedule_setup(dashboard_id="rev-dash-uuid", schedule_id="sched-uuid")
-# → grantsSql / createTaskSql / dropTaskSql, taskState: "absent"
+# → adminSetupSql, taskState: "absent"
 
 # 4. Tell the user: "Saved — Mondays 07:00 ET, and I sent one just now so you can check
-#    it.  It won't arrive on its own until an ACCOUNTADMIN runs these statements; once
-#    they have, the Monday send is fully automatic, chart images included."
+#    it.  It won't arrive on its own until two things happen: an editor with admin rights
+#    clicks Activate automatic sending in the Schedule tab, and — if this consumer hasn't
+#    already — an ACCOUNTADMIN runs the one-time dispatcher setup statements.  Once both
+#    are done, the Monday send is fully automatic, chart images included."
 ```
 
 `recipients` on `dvt_email_schedule_update` **replaces** the whole set — it is not
