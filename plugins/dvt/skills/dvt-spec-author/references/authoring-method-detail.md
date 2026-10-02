@@ -292,6 +292,14 @@ differ — but it does **not** check panel scope, so two renders of *different* 
 defaulting to 800×600) pass validation and return a meaningless diff instead of an error. Keep
 `width`, `height`, `format`, and `panel_id` consistent yourself across any pair you diff.
 
+**`dvt_dashboard_render`'s `url` in the native app (DVT-1364).** On SaaS the `url` a succeeded
+render returns is a pre-signed object-storage link that expires in ~24h. In the native app
+renders are stored write-once on the app-owned stage and `url` is instead an app-authenticated
+route with no expiry — it only works for a human already signed into the app, not for this MCP
+session itself, so use `dvt_dashboard_render_inline` when you (the agent) need the image bytes
+there. `purpose: "validation"` on the create-render body is admin-only and not something this
+skill or its tools ever send.
+
 **Close every build/reflow/multi-panel edit with three things:** the final layout table (from the
 apply/preview `plan.layoutSummary`, or a closing `dvt_dashboard_get(format="concise")` after an
 incremental build), the dashboard link, and any caveats worth one line — the table reflects the

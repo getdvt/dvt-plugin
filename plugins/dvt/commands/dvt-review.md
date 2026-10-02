@@ -52,10 +52,17 @@ hourly cap by default, but the render service only runs 2 at a time):
 2. For pages with no artifact: `dvt_dashboard_render(dashboard_id, page=N)` (one call per page,
    0-indexed). Skip gracefully on a 429 `rate-limited` — pass whatever URLs you have and note the
    gap.
-3. Collect the pre-signed `url` of each succeeded render.
+3. Collect the `url` of each succeeded render.
 
 Do **not** call `dvt_dashboard_render_inline` and do not download the images yourself — the critics
 pull each URL to a temp file and Read it there, keeping the PNG bytes out of this session's context.
+
+**Native app (Snowflake) is the exception.** There, `url` is an app-authenticated route
+(`GET …/renders/{renderId}/artifact`, DVT-1364), never a pre-signed link, so a critic's own `curl`
+of it 401s/403s — each `dvt-layout-critic`/`dvt-narrative-critic` dispatch already knows (from its
+own agent instructions) to call `dvt_dashboard_render_inline` itself instead on that topology, so
+nothing changes here: still collect and hand off the `url` from Steps 1–3 above exactly as you
+would on SaaS (the critics use it only to detect which topology they're on).
 
 ## Step 3 — dispatch both critics (fresh, in parallel)
 

@@ -1,7 +1,7 @@
 ---
 name: dvt-layout-critic
 description: "Critiques a dvt dashboard's layout, visual design, and readability — Gestalt grouping, focal points, chart-type fit, Tufte/Few data-ink, and titles/context. Reviews a spec before you apply it, or a built dashboard (by id) including its actual rendered pages. Read-only; returns severity-rated findings with concrete fixes. Input: a dvt dashboard spec (JSON) or a dashboard id. Output: a PASS / NEEDS ATTENTION / SIGNIFICANT ISSUES report."
-tools: Read, Bash, mcp__dvt__dvt_dashboard_get, mcp__dvt__dvt_dashboard_render, mcp__dvt__dvt_dashboard_renders
+tools: Read, Bash, mcp__dvt__dvt_dashboard_get, mcp__dvt__dvt_dashboard_render, mcp__dvt__dvt_dashboard_renders, mcp__dvt__dvt_dashboard_render_inline
 ---
 
 # dvt Layout Critic
@@ -28,16 +28,25 @@ thing — the live spec AND the rendered pixels:
    ("current revision" = the `version` field from `dvt_dashboard_get`; match it against each
    listed render's `revision` before reusing); call `dvt_dashboard_render` (one call per page;
    `page` is 0-indexed) only for pages that have no artifact.
-3. **Look at the pixels — via file, never inline.** Every succeeded render carries a pre-signed
-   expiring `url`. Download it to a temp file, then Read that file (Read displays images):
+3. **Look at the pixels — via file, never inline.** Every succeeded render carries a `url`. On
+   SaaS/gallery/enterprise this is a pre-signed, expiring object-storage URL — download it to a
+   temp file, then Read that file (Read displays images):
 
    ```bash
    curl -sSf -o "${TMPDIR:-/tmp}/dvt-critic-p<PAGE>.png" "<url>"   # one file per page index
    ```
 
-   **Never call `dvt_dashboard_render_inline`** — it returns the PNG as inline base64 and floods
-   your context; the URL → temp file → Read path shows you the same pixels for a fraction of the
-   tokens.
+   **Never call `dvt_dashboard_render_inline`** on that topology — it returns the PNG as inline
+   base64 and floods your context; the URL → temp file → Read path shows you the same pixels for a
+   fraction of the tokens.
+
+   **Native app (Snowflake) is the exception.** There, `url` is an app-authenticated route
+   (`GET …/renders/{renderId}/artifact`, DVT-1364) — never a pre-signed link — and `curl` has no
+   session to present, so it 401s/403s. Recognize this topology by the URL having no signature
+   query params (no `sig=`/`exp=`/`X-Amz-*`) and sitting on the app's own origin rather than object
+   storage. There, skip the curl step and call `dvt_dashboard_render_inline` instead to get the PNG
+   bytes directly — the base64-flooding concern above doesn't change this; it is simply the only
+   way to see the pixels on this topology.
 
 The render is evidence the spec can't give you: clipped or colliding labels, legends sitting on
 axes, truncated table cells or annotation text, focal points that don't land at real size. Flag

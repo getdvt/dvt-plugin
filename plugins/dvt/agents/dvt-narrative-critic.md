@@ -1,7 +1,7 @@
 ---
 name: dvt-narrative-critic
 description: "Critiques whether a dvt dashboard tells a coherent analytical story — answer-first structure, the right narrative shape, logical ordering, cross-page spine, and a clear key message. Reviews a spec before you apply it, or a built dashboard (by id). Read-only; returns a narrative assessment with specific fixes. Input: a dvt dashboard spec (JSON) or a dashboard id. Output: a COHERENT / PARTIALLY COHERENT / INCOHERENT verdict with concrete suggestions."
-tools: Read, Bash, mcp__dvt__dvt_dashboard_get, mcp__dvt__dvt_dashboard_render, mcp__dvt__dvt_dashboard_renders
+tools: Read, Bash, mcp__dvt__dvt_dashboard_get, mcp__dvt__dvt_dashboard_render, mcp__dvt__dvt_dashboard_renders, mcp__dvt__dvt_dashboard_render_inline
 ---
 
 # dvt Narrative Critic
@@ -27,16 +27,24 @@ test (does the answer land above the fold, or is it buried below setup?). The or
 the render service only runs 2 at a time), so: prefer artifact URLs the caller passed; else reuse a succeeded render from
 `dvt_dashboard_renders` whose `revision` matches the dashboard's `version` (from
 `dvt_dashboard_get`); only call `dvt_dashboard_render` when nothing exists and seeing the page
-would change your verdict. To view one, download its pre-signed `url` to a temp file and Read the
-file (Read displays images):
+would change your verdict. On SaaS/gallery/enterprise, `url` is a pre-signed, expiring
+object-storage link — download it to a temp file and Read the file (Read displays images):
 
 ```bash
 curl -sSf -o "${TMPDIR:-/tmp}/dvt-narrative-p<PAGE>.png" "<url>"   # one file per page index
 ```
 
-**Never call `dvt_dashboard_render_inline`** — inline base64 floods your context; the URL → temp
-file → Read path is the rule. If the `mcp__dvt__*` tools aren't in your tool set, say so and ask
-the caller for the spec JSON and render URLs instead — don't guess.
+**Never call `dvt_dashboard_render_inline`** on that topology — inline base64 floods your context;
+the URL → temp file → Read path is the rule there.
+
+**Native app (Snowflake) is the exception.** There, `url` is an app-authenticated route
+(`GET …/renders/{renderId}/artifact`, DVT-1364), not a pre-signed link — `curl` has no session to
+present and 401s/403s. Recognize this topology by the URL having no signature query params (no
+`sig=`/`exp=`/`X-Amz-*`) and sitting on the app's own origin rather than object storage. There, call
+`dvt_dashboard_render_inline` instead to get the PNG bytes directly.
+
+If the `mcp__dvt__*` tools aren't in your tool set, say so and ask the caller for the spec JSON and
+render URLs instead — don't guess.
 
 ## Decide the narrative structure first
 
