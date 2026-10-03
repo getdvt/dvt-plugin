@@ -295,7 +295,8 @@ defaulting to 800×600) pass validation and return a meaningless diff instead of
 **`dvt_dashboard_render`'s `url` in the native app (DVT-1364).** On SaaS the `url` a succeeded
 render returns is a pre-signed object-storage link that expires in ~24h. In the native app
 renders are stored write-once on the app-owned stage and `url` is instead an app-authenticated
-route with no expiry — it only works for a human already signed into the app, not for this MCP
+route (the URL itself does not expire, but a personal render is deleted after the install's
+retention window, 24h by default, after which the URL 404s) — it only works for a human already signed into the app, not for this MCP
 session itself, so use `dvt_dashboard_render_inline` when you (the agent) need the image bytes
 there. `purpose: "validation"` on the create-render body is admin-only and not something this
 skill or its tools ever send.
