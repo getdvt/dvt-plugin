@@ -1,0 +1,1 @@
+{"mcpServers":{"dvt-render-viewer":{"command":"node","args":["${CLAUDE_PLUGIN_ROOT}/servers/render-viewer/server.mjs"]}}}

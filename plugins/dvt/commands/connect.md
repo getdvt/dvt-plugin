@@ -7,7 +7,8 @@ description: Connect this plugin to a dvt endpoint (dvt Gallery or a direct engi
 You are walking the user from a fresh install to a working dvt connection. The user may not be
 technical. Be concise, ask one thing at a time, and never print or echo their API key back to them.
 
-The plugin bundles no MCP server of its own — this command registers one. For dvt Gallery you
+The plugin ships one local MCP server (`dvt-render-viewer`, for native-app renders); the Gallery
+connection is still registered by this command. For dvt Gallery you
 register an authenticated, user-scoped `dvt` server; for a direct engine URL you point it at the
 user's engine URL. The key (if any) is stored only in the user's local Claude config — never write it
 to a file in this repo or anywhere in the project.

@@ -29,9 +29,9 @@ Run **`/dvt:connect`** and follow the prompts. You can point the client at eithe
 - **Direct engine URL** — a dvt engine URL you already have (e.g. `http://localhost:8001/mcp`), with or
   without auth depending on how you front it.
 
-The plugin registers no MCP server until you run `/dvt:connect` — that command adds a user-scoped
-`dvt` server carrying your endpoint and (for Gallery) your key, so nothing secret and nothing broken
-ships in the repo.
+The plugin ships one local server, `dvt-render-viewer` (see "View native-app renders" below). The dvt
+Gallery MCP connection is still registered by `/dvt:connect` — that command adds a user-scoped `dvt`
+server carrying your endpoint and (for Gallery) your key, so no secret ships in the plugin.
 
 On Cowork (no CLI), see [`SETUP.md`](SETUP.md) instead.
 
@@ -56,6 +56,30 @@ viewed from a temp file so no base64 image bytes ever land in context.
 have a single canonical source in the private dvt repo (`web/public/dvt-spec-authoring-skill.md` and
 `web/public/dvt-spec-authoring-skill/references/`) and are generated into this tree when the plugin
 is published, so the shipped copy cannot drift from canonical. Edit them there, not here.
+
+## View native-app renders (dvt_render_view)
+
+The plugin bundles a small local MCP server, `dvt-render-viewer` (no dependencies), with one
+tool, `dvt_render_view(dashboard_id, render_id)`. It downloads a stored render PNG from your dvt native
+app with **your own** Snowflake credentials and returns it as an inline image. It never returns a URL
+and never writes to disk. It needs Node >=18 on PATH; without Node the `dvt-render-viewer` server fails
+to start, and the rest of the plugin is unaffected.
+
+Environment variables are read from the environment Claude Code was launched with, so a change needs a
+restart or a `/mcp` reconnect:
+
+- `DVT_APP_URL` (required) — the app's ingress URL, e.g. `https://abc-xyz.snowflakecomputing.app`.
+- Credential, one of:
+  - **Keypair mode (preferred)** — a `snow` CLI connection (`DVT_SNOWFLAKE_CONNECTION`, default `default`). The
+    server runs `snow connection generate-jwt` and exchanges the JWT for an ingress token, cached in
+    memory for 50 minutes. Optional: `DVT_SNOWFLAKE_ROLE` (scope the token to a role) and
+    `DVT_SNOWFLAKE_ACCOUNT_URL` (otherwise derived from `snow connection list`).
+  - **PAT mode** — `DVT_SNOWFLAKE_PAT`: a Snowflake programmatic access token, sent directly. Not yet
+    verified against the app ingress. Prefer keypair mode: a PAT exported in the shell is visible to
+    every tool call.
+
+A render is visible only to the user who requested it: a render requested by someone else, or one that
+is not finished, returns "not found". Images over 3.75 MB (or over 8000 px on a side) are refused.
 
 ## Advanced / manual setup
 
