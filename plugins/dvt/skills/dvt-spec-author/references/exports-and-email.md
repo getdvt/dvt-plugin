@@ -481,6 +481,14 @@ consumer's own account with a verified email — **one bad address fails the ent
 so nobody receives it.**  That check happens at send time and cannot be anticipated, so
 prove a new recipient list with one real send.
 
+**Opt-in customer SMTP relay (native-app `1.1.1` and later; `1.1.0` and earlier have no
+relay).**  On a native-app install where an admin opted into the customer SMTP relay
+(their own mail host), the rules above change: each recipient must instead be on the
+admin's relay allowlist (not a verified Snowflake user), charts arrive as inline images
+and table data as `.xlsx` attachments, and the mail is capped at 5 MiB.  Installs that
+have not opted in behave exactly as described above.  Relay rejections never fall back to
+the default send.
+
 **Read the audit summary before you report success.**  A 202 means the mail went out,
 not that it went out whole: panels that failed to load, or that fell past the per-email
 panel/chart caps, are replaced by a note and the mail still ships.  The result carries
@@ -492,7 +500,7 @@ Mail render them inline.)
 ### What the failures mean
 
 Every failure carries `error.meaning` in plain language — whether anything was sent,
-whether a retry can possibly help, and whose problem it is.  The four worth knowing
+whether a retry can possibly help, and whose problem it is.  The ones worth knowing
 cold:
 
 - **409 `email-not-configured` / `email-integration-not-authorized`** — email is not set
@@ -500,6 +508,22 @@ cold:
   must create a NOTIFICATION INTEGRATION, point the app at it with the app's
   `set_email_integration` procedure, and grant the application both `USAGE` and
   `CALLER USAGE` on it.  Tell the user to ask their admin.
+- **409 `email-relay-not-ready`** — the install opted into the SMTP relay but the relay
+  is not ready (the references are bound but the relay procedure is missing, or the relay reports not configured).  Nothing was
+  sent, and it does not fall back to the default send.  Tell the user to ask their admin
+  to re-bind the app's `SMTP_EXTERNAL_ACCESS` and `SMTP_CREDENTIALS` references.
+- **`email-relay`** (relay installs only; the `suggestion` field says what to do) — the
+  relay or the customer's mail server refused the send:
+  - **413** — the MIME message exceeded the relay's 5 MiB cap.  Email one page or trim
+    the dashboard.
+  - **422** — a recipient address is not supported, the relay allowlist is empty or
+    excludes a recipient, there are more than 50 recipients, or the relay refused the
+    message headers (sender address).  Nothing was sent.
+  - **429** — the relay's send limit was reached.  Nothing was sent; wait and retry.
+  - **502** — the customer's mail server refused or could not deliver: a login rejection,
+    a TLS/connect/SMTP failure, or a PARTIAL send (`detail` says "accepted N of M
+    recipients").  **Do not retry a PARTIAL blind** — a retry re-sends to the recipients
+    who already received it.
 - **413 `email-too-large`** — the rendered report exceeds the email byte budget even
   with every table dropped.  Email **one page** (`page_id`) or trim the dashboard's text
   panels.
