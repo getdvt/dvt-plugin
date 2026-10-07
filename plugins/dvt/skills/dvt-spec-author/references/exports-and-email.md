@@ -485,8 +485,9 @@ prove a new recipient list with one real send.
 relay).**  On a native-app install where an admin opted into the customer SMTP relay
 (their own mail host), the rules above change: each recipient must instead be on the
 admin's relay allowlist (not a verified Snowflake user), charts arrive as inline images
-and table data as `.xlsx` attachments, and the mail is capped at 5 MiB.  Installs that
-have not opted in behave exactly as described above.  Relay rejections never fall back to
+and each table panel as an `.xlsx` attachment (up to 50 rows; on an on-demand send, with a note when the result
+was longer; KPI/stat panels attach nothing), and the mail is capped at 5 MiB.  Installs
+that have not opted in behave exactly as described above.  Relay rejections never fall back to
 the default send.
 
 **Read the audit summary before you report success.**  A 202 means the mail went out,
