@@ -435,8 +435,8 @@ Either way, a report sent from a schedule *does* embed chart images, the same as
 interactive send — the render is server-side, from the rows dvt already holds (in case 2,
 the ones the dispatcher fetched for that occurrence, plus any panel carrying its own
 inline `data.rows`, whose `query` is kept for the SQL inspector and is never executed),
-under the same limits (at most 4 chart images; a chart that fails or would blow the 700 KB
-body budget falls back to its "view in dvt" note instead).  A scheduled send re-reads
+under the same limits (at most 12 chart images; a chart that fails, starts rendering after the
+email's render time budget, or would blow the 700 KB body budget falls back to its "view in dvt" note instead).  A scheduled send re-reads
 (re-queries) every panel that carries a `query`, even when the spec also carries baked
 `data.rows` beside it (DVT-4476, Option B) — baked rows are only what a scheduled send
 actually uses for a panel that has no query at all.  **A panel's query must be read-only**
