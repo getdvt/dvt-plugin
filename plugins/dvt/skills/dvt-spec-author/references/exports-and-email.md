@@ -346,6 +346,7 @@ field before telling a user their dashboard is missing.
 | Tool | Verb | Permission | Purpose |
 |------|------|-----------|---------|
 | `dvt_dashboard_email`        | write (sends mail) | `data:query` + `data:export` + `dashboard:read`  | Email the dashboard (or one page) as an HTML report, right now |
+| `dvt_dashboard_email_status` | read    | `data:query` + `data:export` + `dashboard:read`  | Result of a background email by `run_id`; never sends |
 | `dvt_email_schedule_create`  | write   | `dashboard:write` | **Usually absent.** Save a cadence + recipient list for that report |
 | `dvt_email_schedule_list`    | read    | `dashboard:read`  | **Usually absent.** List a dashboard's saved email schedules (recipients only for `dashboard:write`) |
 | `dvt_email_schedule_update`  | write   | `dashboard:write` | **Usually absent.** Enable/disable, move the cadence, or **replace** the recipient set |
@@ -353,7 +354,7 @@ field before telling a user their dashboard is missing.
 | `dvt_email_schedule_run`     | write (sends mail) | `dashboard:write` + `data:query` + `data:export` | **Usually absent.** Send a saved schedule's report now, on your session |
 | `dvt_email_schedule_setup`   | read    | `dashboard:write` | **Usually absent.** The one-time statements a Snowflake **admin** runs to create (or update) the shared dispatcher task that fires every activated schedule, plus this schedule's `taskState` |
 
-Only `dvt_dashboard_email` is on every install.  The six `dvt_email_schedule_*` tools are
+Only `dvt_dashboard_email` (and its `_status` poll) is on every install.  The six `dvt_email_schedule_*` tools are
 registered **together or not at all** — on an install where they are absent, see the
 section below before you tell anyone a report can be scheduled.
 
@@ -472,7 +473,7 @@ report's own default view.  A stored **schedule** carries no filter state — ru
 always sends the default view.
 
 **Confirm with the user before you call it.**  There is no undo, no preview and no
-dedupe: calling twice sends twice.  To see the report first, render the page with
+dedupe: a new call without an `idempotency_key` is a new send.  To see the report first, render the page with
 `dvt_dashboard_render_inline`.
 
 **Recipients are the usual failure.**  1–50 **bare** addresses (`dana@example.com`,
@@ -490,10 +491,17 @@ was longer; KPI/stat panels attach nothing), and the mail is capped at 5 MiB.  I
 that have not opted in behave exactly as described above.  Relay rejections never fall back to
 the default send.
 
-**Read the audit summary before you report success.**  A 202 means the mail went out,
+**The send is asynchronous.**  The tool starts a background send and waits up to ~45 s,
+then returns the run: `status`, `done`, `sent`, `runId`, `idempotencyKey`.  If `done` is
+`false`, call `dvt_dashboard_email_status(dashboard_id, run_id)` — **never send again.**
+When it is not `sent`, read `meaning`: it says whether anything went out and whether a
+resend is safe.  Pass the same `idempotency_key` to retry a call whose result you lost (a
+replay never sends twice); a resend after a finished run needs a new key (omit it).
+
+**Read the audit summary before you report success.**  `sent` means the mail went out,
 not that it went out whole: panels that failed to load, or that fell past the per-email
 panel/chart caps, are replaced by a note and the mail still ships.  The result carries
-`panelsRendered` / `panelsFailed` / `panelsOmitted` plus a `reportComplete` flag — when
+`auditSummary` and a `reportComplete` flag (from `panelsFailed` / `panelsOmitted`) — when
 it is `false`, say which panels did not make it.  (Note also that Gmail strips `data:`
 image URIs and shows a chart's alt text instead; Apple Mail, Outlook desktop and iOS
 Mail render them inline.)
