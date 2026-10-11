@@ -62,8 +62,8 @@ queries the flushed table with ordinary SQL — there is no separate "sheet" sou
 
 - **Snowflake:** database `dvt_writeback`, a schema per root folder (`unfiled` for sheets
   outside any folder), and a table named for the sheet. The table and its columns are
-  created **double-quoted with their declared (lowercase) case**, so unquoted SQL does not
-  resolve. Query `<targetDatabase>.<targetSchema>."<targetTable>"` and double-quote each
+  created **double-quoted** (table lowercased; columns keep declared case), so unquoted SQL
+  does not resolve. Query `<targetDatabase>.<targetSchema>."<targetTable>"` and double-quote each
   column name with exact case. The querying role needs `USAGE` on the database and schema
   plus `SELECT`.
 - **Postgres and Redshift:** a single schema `dvt_writeback` in the connection's own
@@ -103,8 +103,8 @@ section below.
 warehouse grants* (for `Host Snowflake`, each viewer's own role), not by the sheet's own
 access control. dvt's per-sheet, per-user permissions do not reach this path: what the
 panel can read is whatever that role can read. A role granted `dvt_writeback_reader` can read
-**every** sheet's rows in the writeback schemas, including sheets created later. Only use
-a connection scoped to people who may see all of that data.
+**every** sheet's rows in the writeback schemas, including sheets created later. Grant
+`dvt_writeback_reader` (or a pushdown role with those grants) only to people who may see all of that data. On a shared pushdown connection, every viewer of the panel sees what that connection's role can read.
 
 **Minimal example** — a table panel over a sheet flushed to `dvt_writeback.unfiled."budget"`
 on Snowflake (substitute the FQN from `dvt_sheet_get`). Result column names keep the
@@ -129,9 +129,19 @@ quoted lowercase case, so `spec.columns[].field` is lowercase:
 }
 ```
 
-**Exporting sheet data.** Because this is a regular table panel, it exports like any other
-table panel (for example `dvt_panel_export` as `xlsx`; see the exports reference). That
-route is governed by the same warehouse grants as the query itself.
+**Exporting sheet data.** Two routes work.
+
+- On demand: this is a regular table panel, so `dvt_panel_export` as `csv` or `xlsx` works
+  like any table panel (see the exports reference).
+- Scheduled Excel: on a native-app install (1.1.1 and later) where an admin opted into the
+  customer SMTP relay, a scheduled email report of the dashboard attaches each table panel
+  as an `.xlsx` (up to 50 rows; see "Opt-in customer SMTP relay" in the exports reference).
+  That is the route for a recurring Excel of sheet data today. Export schedules
+  (`dvt_export_schedule_*`) are PDF/PNG only. Non-relay email sends attach nothing. A scheduled send delivers those rows to every
+  recipient it names, whether or not they can open the sheet.
+
+Both routes are governed by the querying role's warehouse grants, like the query itself, not by
+the sheet's own access control.
 
 ### `Host Snowflake` — the shared-object rule (DVT-1767)
 
