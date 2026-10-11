@@ -58,9 +58,10 @@ queries the flushed table with ordinary SQL — there is no separate "sheet" sou
 **Where the rows live.** `dvt_sheet_get` returns `targetDatabase`, `targetSchema` and
 `targetTable`. They are **null until the sheet's first flush** (the UI's "Sync now", or
 `dvt_sheet_flush`) — there is nothing to query before then. `targetDatabase` defaults to
-`dvt_writeback`. The rest depends on the warehouse:
+the install's writeback database (`dvt_writeback`; on the native app `DVT_WRITEBACK`, or the
+name the install was set up with). The rest depends on the warehouse:
 
-- **Snowflake:** database `dvt_writeback`, a schema per root folder (`unfiled` for sheets
+- **Snowflake:** the writeback database (`dvt_writeback`, or `DVT_WRITEBACK` / the install's own name on the native app), a schema per root folder (`unfiled` for sheets
   outside any folder), and a table named for the sheet. The table and its columns are
   created **double-quoted** (table lowercased; columns keep declared case), so unquoted SQL
   does not resolve. Query `<targetDatabase>.<targetSchema>."<targetTable>"` and double-quote each
@@ -86,7 +87,7 @@ on the same warehouse whose role can read the writeback schema:
 
 - **Snowflake native app:** `source_id="Host Snowflake"`, and an admin must grant the
   querying role the app's read-only `dvt_writeback_reader` application role (plus `USAGE`
-  on the `dvt_writeback` database). A linked sheet uses `dvt_linked_reader` instead, and
+  on the install's writeback database — `targetDatabase`). A linked sheet uses `dvt_linked_reader` instead, and
   its flushed table is a changelog of extension-column edits, not the merged rows.
 - **Hosted / other warehouses:** a pushdown connection whose role has the grants listed
   above on the `dvt_writeback` schema and tables.
@@ -94,9 +95,9 @@ on the same warehouse whose role can read the writeback schema:
 Data sources are named in `dvt_dashboard_get` output (each element's `sourceId`). If the
 workspace has no such data source, ask an admin to add one — do not guess a `source_id`.
 
-On the native app, reading app-owned `dvt_writeback` through `Host Snowflake` runs under
+On the native app, reading the app-owned writeback database through `Host Snowflake` runs under
 restricted caller's rights. If a panel reports a missing caller grant, grant the
-per-database CALLER delegation for `dvt_writeback` as described in the shared-object rule
+per-database CALLER delegation for that database as described in the shared-object rule
 section below.
 
 **Governance warning.** A panel over `dvt_writeback` is governed by the *querying role's
