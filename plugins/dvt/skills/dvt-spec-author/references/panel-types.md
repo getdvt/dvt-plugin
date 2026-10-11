@@ -86,6 +86,7 @@ The full staged walk-through, with the rubric for each stage, is **Design flow**
 | `container` | Tabbed container — one page region holding several panel sets behind tabs (layout primitive, not a chart) | `spec.layout: "tabs"` (required), `tabs[]` (required) each `{ id, label, panels:[childId…], layout }`, `defaultTab?`. **Children stay real elements in `panels[]`** referenced by id (never inlined); each tab carries its own mini 24-col `layout`, and the container itself occupies one cell in the page grid. Children are NOT in the page grid. Single level only (no tabs-in-tabs). NOT the same as page-level tabs (`pages[]`+`tabBar`). The semantic validator rejects missing refs / a child placed twice / a child also in the page grid / nesting / a bad `defaultTab` / a tab id that collides with a panel id |
 | `agent` | Interactive block hosting a live conversational thread with a registered Cortex agent (DVT-3562, ADR-0082 W2) | `agent?` (optional `database.schema.agent` FQN of the Cortex agent this panel talks to — unset shows an explicit "no agent configured" state, never a silent no-op or a guessed default). Deliberately minimal: no `data` block (a turn is a Cortex agent run, not a warehouse query, and never enters the query-result cache) and no per-user/thread state — a conversation is per-viewer browser state only, never written into the spec or a stored revision. Interactive-only: a headless/static render shows a placeholder in place of the chat surface |
 | `python` | Full-profile escape hatch (ADR-0014), Snowflake-only (DVT-4255/DVT-4259, ADR-0084) — the author writes Python that runs on the warehouse as an anonymous procedure under the connection's own identity, never owner's rights | `code` (required, 1 MiB byte cap, no `$$`, must define `def main(session, <params…>)`), `params` (typed `string`\|`number`\|`boolean`, bound BY NAME from filter/drill values like a SQL panel's `data.params`, one CALL argument each in declared order), `packages` (allow-list: `pandas`\|`numpy`\|`matplotlib`\|`scipy`\|`pyarrow`\|`openpyxl`; `snowflake-snowpark-python` is implicit), `output` (`table` default\|`value`\|`image`), `presentation` (reuses `TableSpec`/`KpiSpec` — no new visual vocabulary). Requires `data.sourceId` of a Snowflake source. `onClick` is forbidden in v1 (it may still be a filter/drill TARGET via `params`). Authoring requires the `python:author` capability; executes since DVT-4259 (engine assembles a Snowpark anonymous procedure per run, ~4–6 s floor; Snowflake sources only), gated behind the `pythonPanels` deployment switch (granted by every edition row; ON on the Snowflake native app as of DVT-4453, risk accepted 2026-09-19 — the ADR-0084 H5 measurement is still owed for the next cut; still the provider-side kill switch — a native-app install cannot flip it itself, rollback is a package patch, and the in-account lever is the `python:author` editor floor; read `editionCapabilities.pythonPanels`). Honesty clause: `POST /v1/data/query` executes the code and returns a real `table`/`value`/`image` result; a python panel saves but no first-party surface (SPA, MCP tools, exports, renders) renders it until the renderer + tray editor land in DVT-4260 — do not deliver one as a working result; for runnable Python today, use a `python` action on an `action-button` (see the Rule under python panels) |
+| `sheet` | Live grid over a dvt Sheet (DVT-2933, ADR-0091 D1) — a VIEW referenced by id, never a copy of the data | `sheetId` (required uuid), `columns?`, `filterBindings?`, `readOnly?`, `pageSize?`, `sort?`, `presentation?` — see "sheet panels" below. Placeholder-only in this release; `onClick` forbidden (may be a filter target via `filterBindings`) |
 | `action-button` | Pressable call-to-action block: `style` (aesthetics) + `action` (click behavior) + `align?`/`offset?`/`width?` (its own slot placement) (DVT-4216) | `style` (required, `ButtonStyleSpec`: `label` required, plus `icon`/`iconText`/`iconPosition`/`variant`/`size` presets and raw siblings, plus `states?` — per-interaction-state `background`/`color`/`borderColor` overrides for `hover`/`active`/`focus`/`disabled`/`busy` (DVT-4517; `busy` is now set: `ActionButtonPanel` holds `data-busy` for the lifetime of a python action's run, DVT-4520) — and the raw chrome keys `shadow`/`borderWidth`/`borderStyle`/`fontFamily`/`letterSpacing`/`textTransform`/`height`), `action` (required, `ActionSpec`, `kind`-discriminated: `navigate`\|`filter`\|`exportPage`\|`exportAll`\|`python`; a `python` action's own shape is `code` (required), `params`, `packages`, `result` (omitting it entirely defaults to `toast`; when authored, `mode` `download`\|`toast`\|`refresh` is required), `confirm` (prompt string) — the owning panel needs `data.sourceId` of a Snowflake source, and authoring needs the `python:author` capability). Honesty clause: schema + render in DVT-4217; dispatch per kind: `navigate` + `filter` are live (DVT-4218 / DVT-4219); `exportPage`/`exportAll` are inert until DVT-4220; `python` (DVT-4518) is live end to end, subject to the deployment's `pythonPanels` capability — ON on the Snowflake native app as of DVT-4453, risk accepted 2026-09-19 — the `POST /v1/data/query` wire dispatch shipped in DVT-4519 (synchronous v1; `result.mode:"download"` returns the artifact's bytes inline, nothing is written to a stage) and the product UI's own click handler shipped in DVT-4520: one POST per click, client-debounced, with an optional two-step `confirm`. A `python` action on an `action-button` is THE way to run Python from a dashboard today — author this, not a `python` panel, for "a button that runs Python" |
 
 Any panel can also carry a `contextMenu` object (right-click action menu — filter/drill/link/copy/export/openOverlay) and/or a `drill` object (retained for back-compat, inert on its own — DVT-555; wire drill navigation via `onClick` or a `contextMenu` action instead). `onClick` (a single, disclosed left-click action — filter/drill/openOverlay) is narrower: a property on every panel type that resolves a clicked datum (every `chart:*` type, plus `table`/`kpi`/`stat`/`metric-strip`) — but `chart:line:racing` is inert at runtime (no affordance, no dispatch; DVT-3041); the schema rejects it on `filter`, `filter-bar`, `container`, `divider`, `section`, `text`, `html`, `hero`, `media`, `agent`, `action-button`, `python` (a python panel may still be a filter/drill TARGET via its own `params`), which surface no clicked datum. See **Filters & drill-downs** for the full field reference and the post-DVT-2722 actionability rule (which surfaces need a row-field `valueFrom` vs. `category`/`value`/`seriesName` vs. — on `table`, `column`/`columnLabel`, gated for keyboard by `onClick.column`, DVT-4205).
@@ -1381,6 +1382,50 @@ first-party surface (SPA, MCP tools, exports, renders) renders a python panel
 until the renderer + tray editor land in DVT-4260 — see the Rule above: for
 runnable Python today, author a `python` action on an `action-button`.
 
+### sheet panels — a live grid over a dvt Sheet
+
+`sheet` is a live grid over a dvt Sheet (DVT-2933, ADR-0091 D1). The spec holds a
+**reference** (`sheetId`) and display options only — never rows, column types, the
+sheet name or a row count (ADR-0091 I3); those resolve from the sheet at read time.
+
+```json
+{ "id": "pipeline-sheet", "type": "sheet", "title": "Pipeline",
+  "spec": { "sheetId": "00000000-0000-4000-8000-000000000000",
+            "columns": ["Account", "Stage", "Amount"], "readOnly": true } }
+```
+
+| Field | Notes |
+|---|---|
+| `sheetId` | **Required** uuid. Discover ids with `dvt_sheet_list`. |
+| `columns` | Visible subset and order, by column name (unique, at least 1). Omitted shows all columns in sheet order. |
+| `filterBindings` | Map of dashboard filter parameter name to the sheet column it filters. A sheet panel is a filter TARGET this way. |
+| `readOnly` | `true` hides edit affordances. `false` (default) grants nothing. |
+| `pageSize` | Rows per page, 25 to 500 (default 100). |
+| `sort` | Default sort, 1 to 3 `{ column, dir: "asc"\|"desc" }` items; `column` unique across items. |
+| `presentation` | `frozenColumns` (0 to 3), `columnWidths` (column name to 48 to 640 px), `conditionalFormat` (up to 50 rules, same vocabulary as `table`). |
+
+Rules to know before you author one:
+
+- **Saving needs sheet read on `sheetId`.** Without it the save fails with "sheet not
+  found or not accessible". Column refs (`columns`, `filterBindings`, `sort`,
+  `presentation`) are validated against the sheet at save.
+- **Dashboard sharing grants nothing on the sheet.** Viewers without sheet read see a
+  placeholder, and writes need sheet write (`readOnly: false` is not a grant).
+- **Column names in the spec are visible to every dashboard reader**, including readers
+  with no access to the sheet itself.
+- **Edit DATA with `dvt_sheet_rows_append` + `dvt_sheet_flush`**, never through the
+  panel or the spec. No new tool exists for the panel.
+- **In this release the panel renders as a placeholder** ("Sheet panels are coming"),
+  and emails/exports show a stub. The spec still validates and saves.
+- **Minimum version:** requires a dvt server that accepts `type: "sheet"`. Older
+  native-app installs reject it with 422; do not emit it against an install that
+  rejects it.
+- **Formulas are not supported.**
+- **Chart over `dvt_writeback`:** a chart over `dvt_writeback` is governed by the
+  connection's grants, not the sheet's ACL. The sheet ACL does not protect it.
+- `onClick` is forbidden on a sheet panel (it may still be a filter target through
+  `filterBindings`).
+
 ### canvas blocks — `stat` · `hero` · `media` · `divider`
 
 Composition blocks for richer layouts (designed for `layout.mode: "canvas"`
@@ -1863,7 +1908,7 @@ resolves a clicked datum**: every `chart:*` type (including animated) — but `c
 inert at runtime (no affordance, no dispatch; DVT-3041) — plus `table`/`kpi`/`stat`/
 `metric-strip`; the schema rejects it on `filter`, `filter-bar`, `container`, `divider`, `section`,
 `text`, `html`, `hero`, `media`, `agent`, `action-button`, `python` (may still be a filter/drill
-TARGET via its own `params`), which surface no clicked datum. A single, **bare** action object
+TARGET via its own `params`), `sheet` (may be a filter TARGET via `filterBindings`), which surface no clicked datum. A single, **bare** action object
 (NOT `{ action, affordance }`) fired by a plain **left-click** on a mark/row — DOM surfaces
 (`table`/`kpi`/`stat`/`metric-strip`) additionally activate on **keyboard** Enter/Space. `type` ∈
 `filter` | `drill` | `openOverlay` — the navigation-safe subset of `contextMenu`'s vocabulary (no
