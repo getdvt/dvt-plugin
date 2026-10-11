@@ -50,6 +50,89 @@ So a tab titled `"Q1 2026"` becomes `q1_2026`; a second tab that also sanitizes 
 `q1_2026` becomes `q1_2026_2`. If unsure of a source's exact table names, describe the
 source or inspect a prior successful query's `columns` — don't guess from the tab labels.
 
+### Using dvt Sheet data in a dashboard
+
+A dvt Sheet's rows can feed a panel once the sheet has flushed to the warehouse. The panel
+queries the flushed table with ordinary SQL — there is no separate "sheet" source type.
+
+**Where the rows live.** `dvt_sheet_get` returns `targetDatabase`, `targetSchema` and
+`targetTable`. They are **null until the sheet's first flush** (the UI's "Sync now", or
+`dvt_sheet_flush`) — there is nothing to query before then. `targetDatabase` defaults to
+`dvt_writeback`. The rest depends on the warehouse:
+
+- **Snowflake:** database `dvt_writeback`, a schema per root folder (`unfiled` for sheets
+  outside any folder), and a table named for the sheet. The table and its columns are
+  created **double-quoted with their declared (lowercase) case**, so unquoted SQL does not
+  resolve. Query `<targetDatabase>.<targetSchema>."<targetTable>"` and double-quote each
+  column name with exact case. The querying role needs `USAGE` on the database and schema
+  plus `SELECT`.
+- **Postgres and Redshift:** a single schema `dvt_writeback` in the connection's own
+  database, with the folder path folded into the table name. Query
+  `dvt_writeback."<targetTable>"` (double-quote the table, and the columns if their names
+  are not plain lowercase). The querying role needs `USAGE` on schema `dvt_writeback` plus
+  `SELECT`.
+
+**The table lags the sheet.** It holds only flushed rows. Edits still pending (see
+`dvt_sheet_rows_pending`) do not appear until the next flush.
+
+**Exclude the system columns.** A standard sheet's flushed table carries `row_uid` and
+`_dvt_flushed_seq` (a flush watermark) alongside the sheet's own columns, and usually
+`_dvt_edited_by` and `_dvt_edited_at` (who last edited the row, and when). Select the
+sheet's own columns by name — never `SELECT *` — so these stay out of panels.
+
+**Which data source reads it.** The sheet's writeback connection is never a query source:
+dvt refuses to run panel queries through it. Use a *different*, non-writeback connection
+on the same warehouse whose role can read the writeback schema:
+
+- **Snowflake native app:** `source_id="Host Snowflake"`, and an admin must grant the
+  querying role the app's read-only `dvt_writeback_reader` application role (plus `USAGE`
+  on the `dvt_writeback` database). A linked sheet uses `dvt_linked_reader` instead, and
+  its flushed table is a changelog of extension-column edits, not the merged rows.
+- **Hosted / other warehouses:** a pushdown connection whose role has the grants listed
+  above on the `dvt_writeback` schema and tables.
+
+Data sources are named in `dvt_dashboard_get` output (each element's `sourceId`). If the
+workspace has no such data source, ask an admin to add one — do not guess a `source_id`.
+
+On the native app, reading app-owned `dvt_writeback` through `Host Snowflake` runs under
+restricted caller's rights. If a panel reports a missing caller grant, grant the
+per-database CALLER delegation for `dvt_writeback` as described in the shared-object rule
+section below.
+
+**Governance warning.** A panel over `dvt_writeback` is governed by the *querying role's
+warehouse grants* (for `Host Snowflake`, each viewer's own role), not by the sheet's own
+access control. dvt's per-sheet, per-user permissions do not reach this path: what the
+panel can read is whatever that role can read. A role granted `dvt_writeback_reader` can read
+**every** sheet's rows in the writeback schemas, including sheets created later. Only use
+a connection scoped to people who may see all of that data.
+
+**Minimal example** — a table panel over a sheet flushed to `dvt_writeback.unfiled."budget"`
+on Snowflake (substitute the FQN from `dvt_sheet_get`). Result column names keep the
+quoted lowercase case, so `spec.columns[].field` is lowercase:
+
+```json
+{
+  "id": "budget",
+  "type": "table",
+  "title": "Budget",
+  "data": {
+    "sourceId": "Host Snowflake",
+    "query": "SELECT \"department\", \"owner\", \"amount\" FROM dvt_writeback.unfiled.\"budget\" ORDER BY \"department\""
+  },
+  "spec": {
+    "columns": [
+      { "field": "department" },
+      { "field": "owner" },
+      { "field": "amount" }
+    ]
+  }
+}
+```
+
+**Exporting sheet data.** Because this is a regular table panel, it exports like any other
+table panel (for example `dvt_panel_export` as `xlsx`; see the exports reference). That
+route is governed by the same warehouse grants as the query itself.
+
 ### `Host Snowflake` — the shared-object rule (DVT-1767)
 
 Shared (imported) databases — `SNOWFLAKE.ACCOUNT_USAGE`, `SNOWFLAKE_SAMPLE_DATA`, any
