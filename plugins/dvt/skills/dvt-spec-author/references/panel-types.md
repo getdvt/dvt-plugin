@@ -1417,12 +1417,15 @@ Rules to know before you author one:
   panel or the spec. No new tool exists for the panel.
 - **In this release the panel renders as a placeholder** ("Sheet panels are coming"),
   and emails/exports show a stub. The spec still validates and saves.
+  To show a sheet's rows in a dashboard today, use a `table` panel over the sheet's
+  flushed warehouse table (see data-sources.md, "Using dvt Sheet data in a dashboard").
 - **Minimum version:** requires a dvt server that accepts `type: "sheet"`. Older
   native-app installs reject it with 422; do not emit it against an install that
   rejects it.
 - **Formulas are not supported.**
 - **Chart over `dvt_writeback`:** a chart over `dvt_writeback` is governed by the
-  connection's grants, not the sheet's ACL. The sheet ACL does not protect it.
+  querying role's warehouse grants (for Host Snowflake, each viewer's own role), not the
+  sheet's ACL. The sheet ACL does not protect it.
 - `onClick` is forbidden on a sheet panel (it may still be a filter target through
   `filterBindings`).
 

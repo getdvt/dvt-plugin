@@ -108,8 +108,8 @@ panel can read is whatever that role can read. A role granted `dvt_writeback_rea
 `dvt_writeback_reader` (or a pushdown role with those grants) only to people who may see all of that data. On a shared pushdown connection, every viewer of the panel sees what that connection's role can read.
 
 **Minimal example** — a table panel over a sheet flushed to `dvt_writeback.unfiled."budget"`
-on Snowflake (substitute the FQN from `dvt_sheet_get`). Result column names keep the
-quoted lowercase case, so `spec.columns[].field` is lowercase:
+on Snowflake (substitute the FQN from `dvt_sheet_get`). Result column names keep their
+declared case (lowercase in this example), so `spec.columns[].field` must match exactly:
 
 ```json
 {
@@ -137,8 +137,11 @@ quoted lowercase case, so `spec.columns[].field` is lowercase:
 - Scheduled Excel: on a native-app install (1.1.1 and later) where an admin opted into the
   customer SMTP relay, a scheduled email report of the dashboard attaches each table panel
   as an `.xlsx` (up to 50 rows; see "Opt-in customer SMTP relay" in the exports reference).
-  That is the route for a recurring Excel of sheet data today. Export schedules
-  (`dvt_export_schedule_*`) are PDF/PNG only. Non-relay email sends attach nothing. A scheduled send delivers those rows to every
+  That is the relay route for a recurring Excel of sheet data. The non-relay route: an export
+  schedule (`dvt_export_schedule_create`) with `format: "xlsx"` on a table panel over the sheet's
+  warehouse table (the sheet panel itself is rejected). The export-schedule route is hosted dvt
+  only (it is not available on a native-app install), and its xlsx/csv file is attached to the
+  email and never stored (email recipients only, no webhook channels). Non-relay email report sends attach nothing. A scheduled send delivers those rows to every
   recipient it names, whether or not they can open the sheet.
 
 Both routes are governed by the querying role's warehouse grants, like the query itself, not by

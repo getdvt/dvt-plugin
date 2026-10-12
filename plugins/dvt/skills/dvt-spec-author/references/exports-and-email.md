@@ -5,7 +5,7 @@
 
 ## Scheduled exports (DVT-731, DVT-791, ADR-0051)
 
-Recurring PDF or PNG exports let a dashboard deliver itself on a schedule — no human
+Recurring PDF or PNG exports (plus XLSX or CSV rows of a table panel) let a dashboard deliver itself on a schedule — no human
 has to remember to check.  **Use a scheduled export** when someone wants the same
 dashboard on a recurring cadence (a Monday exec digest, an end-of-month report);
 **use a one-off render** (`dvt_dashboard_render`) when they want the artifact once,
@@ -14,10 +14,10 @@ right now.  Six tools cover the full lifecycle:
 | Tool | Verb | Permission | Purpose |
 |------|------|-----------|---------|
 | `dvt_export_schedule_preview` | dry-run | `dashboard:write` | Validate a recurrence and see the next fire times **before** creating/updating — persists nothing |
-| `dvt_export_schedule_create`  | write   | `dashboard:write` | Create a schedule, add recipients, wire webhook destinations (Slack / Teams / Google Chat) in one call; optionally scope to a single chart panel (`panel_id`, PNG-only) or a single page (`page_id`, pdf/png) |
+| `dvt_export_schedule_create`  | write   | `dashboard:write`; xlsx/csv also need `data:query` **and** `data:export` (the free plan has neither → 403) | Create a schedule, add recipients, wire webhook destinations (Slack / Teams / Google Chat) in one call; optionally scope to a single panel (`panel_id`: png, or xlsx/csv for a table panel — email-only, no webhook destinations) or a single page (`page_id`, pdf/png) |
 | `dvt_export_schedule_list`    | read    | `dashboard:read`  | List all schedules for a dashboard |
 | `dvt_export_schedule_get`     | read    | `dashboard:read`  | Fetch one schedule with its recipients + run state |
-| `dvt_export_schedule_update`  | write   | `dashboard:write` | Partially update a schedule (merge patch) |
+| `dvt_export_schedule_update`  | write   | `dashboard:write`; changing or editing an xlsx/csv schedule also needs `data:query` + `data:export` (switching one off with `enabled: false` does not) | Partially update a schedule (merge patch) |
 | `dvt_export_schedule_delete`  | write   | `dashboard:write` | Permanently delete a schedule and its run history |
 
 **Recommended agent workflow:** `preview` the recurrence → `create` the schedule →
@@ -62,7 +62,7 @@ and wire webhook destinations (Slack, Teams, or Google Chat).
 ```
 dvt_export_schedule_create(
     dashboard_id = "<uuid>",
-    format       = "pdf",           # "pdf" | "png"
+    format       = "pdf",           # "pdf" | "png" | "xlsx" | "csv" (xlsx/csv: table panel_id only)
     preset       = { "kind": "weekly", "dayOfWeek": 1, "atHour": 9 },
     timezone     = "America/New_York",
     title        = "Monday morning exec digest",
@@ -112,12 +112,28 @@ dvt_export_schedule_create(
 **Page-grain exports (`page_id`):** supply a page id to export a single dashboard
 page rather than the whole dashboard (DVT-1193).  Page ids come from the
 `pages[*].id` field in the spec; use `dvt_page_list` or `dvt_dashboard_get` to
-enumerate them.  Both `"pdf"` and `"png"` formats are supported (no PNG-only
+enumerate them.  Both `"pdf"` and `"png"` formats are supported (`xlsx`/`csv` are
+not — they need a table `panel_id`; no PNG-only
 restriction — a page is a full layout).  Only multi-page dashboards have
 addressable pages: a single-page dashboard (top-level `panels`, no `pages[]`)
 returns a 400 — schedule the whole dashboard instead.  `page_id` and `panel_id`
 are mutually exclusive; a schedule targets the whole dashboard, one page, or one
 chart, never a combination.
+
+**Tabular exports (`xlsx` / `csv`, DVT-5200):** set `format` to `"xlsx"` or `"csv"` with
+`panel_id` of a **table** panel to deliver that panel's rows on a schedule.  `panel_id` is
+required for these formats (400 without it); any non-table panel type is a 400 (use png).
+Rows are capped at 10,000; an xlsx carries a truncation note when the cap is hit.  **Sheet
+panels never export rows** (ADR-0091 I10) — schedule a table panel over the sheet's
+warehouse table instead.
+
+xlsx/csv schedules are **attached to the email and never stored** — the file is built in
+memory at fire time and sent, with no download link and no object storage.  They are
+therefore **email-only**: `slack_channels` / webhook destinations on an xlsx/csv schedule
+are a 400, and so is switching a schedule that already has webhook destinations to xlsx/csv.
+A file over the 8 MiB email attachment limit fails that run (narrow the query).  Creating or
+editing one needs both `data:query` **and** `data:export` — the free plan has neither, so it
+gets a 403.
 
 ```
 dvt_export_schedule_create(
@@ -359,7 +375,7 @@ registered **together or not at all** — on an install where they are absent, s
 section below before you tell anyone a report can be scheduled.
 
 This family is **disjoint** from `dvt_export_schedule_*` above: those deliver recurring
-**PDF/PNG artifact** exports by email or webhook; these deliver the **inline HTML
+**PDF/PNG/XLSX/CSV artifact** exports by email or webhook; these deliver the **inline HTML
 report**.  The two REST surfaces do not share ids — a schedule id from one 404s on the
 other — so never pass an id between them.
 
