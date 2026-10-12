@@ -23,6 +23,7 @@ Useful tokens:
 - `panel.title.size`, `panel.title.weight`
 - `panel.subtitle.size`, `panel.subtitle.weight`, `panel.subtitle.color` — per-card subtitle typography (falls back to `text.secondary`)
 - `text.primary`, `text.secondary`, `text.muted`
+- `text.accent` — link and inline-`code` color inside text panels. Unset = the app's indigo (`#4F46E5`), which only reads on light surfaces; **set it on any dark dashboard** (`exec-dark` sets `#A5B4FC`)
 - `typography.fontFamily` (and any `*.family` token) — a **closed allow-set, not free text**. Use exactly one of these stacks (or a `"{typography.fontFamily}"` ref): `Inter Variable, Inter, sans-serif` · `Inter, sans-serif` · `JetBrains Mono, monospace` · `JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, monospace` · `ui-sans-serif, system-ui, sans-serif` · `ui-serif, Georgia, serif` · `ui-monospace, monospace`. An off-list stack (e.g. `"Helvetica, Arial, sans-serif"`) is **rejected with a 422 by `dvt_spec_validate`** — a font stack has no safe-literal grammar, so the schema gates it as an enum, not free text (DVT-294, ADR-0032 §A3). Brand identity is carried via the weight/tracking of the allowed faces, not a different typeface — remote font loads (e.g. Google Fonts) are also blocked by the app's CSP, so an off-list stack isn't just a 422, it can never render.
 
 **Start lean.** Don't scaffold all three token tiers by default. Prefer `theme.preset` plus a
@@ -114,7 +115,7 @@ hand-authoring every token:
   (`chart.series.1`–`6`) and the page background (`color.page` / `page.background`) — the org
   baseline beneath the preset flows through for exactly those keys. Do **not** hard-code accent or
   background tokens at the dashboard tier or you block co-branding (ADR-0037). Pick `exec-dark` for
-  presentation/kiosk, `exec-light` for embedded/print/daytime, `exec-brand` when co-branding a tenant.
+  presentation/kiosk (an author's choice — the app shell itself is always light), `exec-light` for embedded/print/daytime, `exec-brand` when co-branding a tenant.
 - The spec stays **dvt Core** — presets are just a token tier.
 
 ### Two moods in one dashboard — a worked `pages[].theme` example
