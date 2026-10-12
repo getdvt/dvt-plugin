@@ -513,6 +513,9 @@ then returns the run: `status`, `done`, `sent`, `runId`, `idempotencyKey`.  If `
 When it is not `sent`, read `meaning`: it says whether anything went out and whether a
 resend is safe.  Pass the same `idempotency_key` to retry a call whose result you lost (a
 replay never sends twice); a resend after a finished run needs a new key (omit it).
+If background send is unavailable the tool falls back to one synchronous send
+(`fallback: "synchronous"`, `done: true`); that send is not protected by the key, so
+check inboxes before retrying.
 
 **Read the audit summary before you report success.**  `sent` means the mail went out,
 not that it went out whole: panels that failed to load, or that fell past the per-email
