@@ -277,7 +277,7 @@ sides or `{ top, right, bottom, left }`), **`maxWidth`** (px, or `"none"` for
 unconstrained), and **`align`** (`"left"`|`"center"`|`"right"`, or `{ preset?, x?, offset? }`
 for a raw position plus a pixel nudge). Three of the four have an ambient theme-token
 sibling as the next-lowest precedence tier — `gap`→`grid.xGap`/`grid.yGap`,
-`padding`→`page.padding`, `maxWidth`→`page.content.width` — so a dashboard-wide default can
+`padding`→`page.padding`, `maxWidth`→`page.content.width` (then the `page.contentWidth` enum token: `reading`/`wide`/`full` = 1140/1440/1600 px; `page.density` `comfortable`|`compact` sets the default gap) — so a dashboard-wide default can
 live in the theme while individual pages override it. `align` is spec-only: there is no
 ambient alignment token, and an invented `page.align` token key would validate (tokens are
 an open map) but have no effect on rendering. Per doctrine (preset → nudge → raw), every
