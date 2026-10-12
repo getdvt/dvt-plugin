@@ -90,6 +90,15 @@ Per-element documentation lives in the dashboard manifest at `meta.panels`, keye
 
 **Editing this documentation after the build** — everything on this page lives in `spec.meta`, and you can patch it in place with `dvt_dashboard_meta_patch` (see "Choosing your approach" above): dashboard-level fields at `/brief`, `/keyQuestions`, `/assumptions`, `/conclusions`, `/decisions`, `/findings`, `/readme`, `/dataAsOf`, and per-panel provenance at `/panels/{panelId}`. Reach for it whenever documentation is the only thing changing — re-applying the whole spec through `dvt_dashboard_apply_spec` just to correct a `purpose` string re-keys every element and resets its revision history, which is exactly what you want to avoid on an existing dashboard. `documentationStale` is server-set and cannot be patched at either level; `/createdBy` is immutable.
 
+### Writing revision notes (the build log)
+
+Every write records a note in version history. Write it unprompted: one specific sentence saying what changed and why, tied to a key question where possible. Empty or placeholder notes ("update", "changes", under 3 words) are rejected.
+
+- `dvt_dashboard_apply_spec` `change_summary` — good: "Added regional revenue page and pinned the date filter to answer Q2"; bad: "updated dashboard".
+- `dvt_sheet_create` / `dvt_sheet_patch` / `dvt_skill_create` / `dvt_skill_update` `change_summary` — same rule, required.
+- `dvt_element_write` `reason` — good: "Switched churn chart to a 12-month rolling rate; monthly values were too noisy to read"; bad: "fix chart".
+- `dvt_dashboard_meta_patch` `reason` — good: "Reworded the brief to lead with the finding, not the topic"; bad: "docs".
+
 ### Researching existing dashboards with `dvt_dashboard_get(view="docs")`
 
 Before authoring a new dashboard that covers the same subject area as an existing one, call `dvt_dashboard_get(view="docs")` to read the existing dashboard's full documentation tree. It returns:
