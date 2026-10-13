@@ -80,11 +80,14 @@ a key question where you can, without being asked. Good: "Split revenue by regio
 region is dragging growth". Bad: "update". Empty or placeholder notes, including
 localized ones ("更新", "mise à jour"), are rejected server-side.
 
-Preview before persisting any net-new or multi-panel change, and show the user the plan as a
-`Row | Panels` table per page built from `plan.layoutSummary` (size cues relative to that page's own
-`columns`; mark a `truncated` page as "first N of rowCount rows"). The table is the authored arrangement
-at one breakpoint, not the rendered one. Showing the plan is not optional under an autonomous framing,
-since persisting an unreviewed dashboard is the failure mode. In a headless run, still preview and record
+Always preview before persisting (it validates and gives you `plan.layoutSummary` to check). For a NEW
+dashboard the user asked for, then persist in the same turn without waiting for approval, and end with the
+`dashboardUrl` link from the apply result plus a `Row | Panels` table per page built from
+`plan.layoutSummary` (size cues relative to that page's own `columns`; mark a `truncated` page as "first N
+of rowCount rows"). For changes to an EXISTING dashboard, show that table as the plan and wait for the
+user's agreement before persisting. The table is the authored arrangement at one breakpoint, not the
+rendered one. Inline renders are your own check, since the user may not see them; never say a dashboard
+"rendered" without giving the `dashboardUrl`. In a headless run, still preview and record
 `"Preview: applied unattended (headless run)"` in `meta.decisions`. Narrate a multi-panel build with a
 one-line status between calls, and surface a server Problem `detail`/`suggestion` verbatim on failure.
 
