@@ -123,9 +123,12 @@ chart, never a combination.
 **Tabular exports (`xlsx` / `csv`, DVT-5200):** set `format` to `"xlsx"` or `"csv"` with
 `panel_id` of a **table** panel to deliver that panel's rows on a schedule.  `panel_id` is
 required for these formats (400 without it); any non-table panel type is a 400 (use png).
-Rows are capped at 10,000; an xlsx carries a truncation note when the cap is hit.  **Sheet
-panels never export rows** (ADR-0091 I10) — schedule a table panel over the sheet's
-warehouse table instead.
+Rows are capped at 10,000; an xlsx carries a truncation note when the cap is hit.  **Scheduled
+exports and emails to recipients never carry a sheet panel's rows** (ADR-0091 I10, FQ-2) —
+schedule a table panel over the sheet's warehouse table instead. **On-demand** export of a
+sheet panel is allowed to the requester only (the panel's grid toolbar, or
+`dvt_panel_export`): plain data, max 10,000 rows, under the sheet ACL plus `data:query` and `data:export`,
+and audited.
 
 xlsx/csv schedules are **attached to the email and never stored** — the file is built in
 memory at fire time and sent, with no download link and no object storage.  They are

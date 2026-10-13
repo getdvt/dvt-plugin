@@ -132,8 +132,10 @@ declared case (lowercase in this example), so `spec.columns[].field` must match 
 
 **Exporting sheet data.** Two routes work.
 
-- On demand: this is a regular table panel, so `dvt_panel_export` as `csv` or `xlsx` works
-  like any table panel (see the exports reference).
+- On demand: the sheet panel itself is exportable. `dvt_panel_export` as `csv` or `xlsx`
+  works on a sheet panel (plain data, the sheet's rows in the panel's default sort, max
+  10,000, under the sheet ACL; dashboard filters are not applied), and so does a table panel
+  over the sheet's warehouse table (see the exports reference).
 - Scheduled Excel: on a native-app install (1.1.1 and later) where an admin opted into the
   customer SMTP relay, a scheduled email report of the dashboard attaches each table panel
   as an `.xlsx` (up to 50 rows; see "Opt-in customer SMTP relay" in the exports reference).
@@ -144,8 +146,32 @@ declared case (lowercase in this example), so `spec.columns[].field` must match 
   email and never stored (email recipients only, no webhook channels). Non-relay email report sends attach nothing. A scheduled send delivers those rows to every
   recipient it names, whether or not they can open the sheet.
 
-Both routes are governed by the querying role's warehouse grants, like the query itself, not by
-the sheet's own access control.
+Every table-panel route is governed by the querying role's warehouse grants, like the query
+itself, not by the sheet's own access control. Only the on-demand sheet-panel export uses the
+sheet ACL.
+
+#### Scheduled Excel reports
+
+The supported route for a recurring Excel of sheet data is a **table panel over the sheet's
+warehouse table**, and which scheduler carries it depends on the edition.
+
+- **Hosted.** An export schedule (`dvt_export_schedule_create` with `format: "xlsx"`) on a
+  table panel over the sheet's warehouse table, on a **non-writeback** pushdown connection.
+  It is governed by the querying role's `SELECT` on the `dvt_writeback` schema, not by the
+  sheet ACL. Choosing this route is an explicit owner decision: every named recipient
+  receives those rows whether or not they can open the sheet.
+- **Native app 1.1.1 and later.** A relay email report: each table panel is attached as an
+  `.xlsx` (up to 50 rows), and it requires the admin opt-in to the customer SMTP relay. It is
+  governed by the `dvt_writeback_reader` role's warehouse grants, not by the sheet ACL, with
+  the same owner decision about recipients. `dvt_export_schedule_create` is not available
+  on a native-app install.
+- **Why it differs from the sheet-panel rule.** A sheet panel's rows are sheet-ACL data, so
+  a scheduled or emailed delivery never carries them (a recipient's access could not be
+  checked against the sheet at send time). Only the requester can export a sheet panel, on
+  demand. A table panel is an ordinary warehouse query, which the owner has chosen to
+  expose through grants.
+- **Future.** A sheet-as-data-source slice, when it lands, follows the sheet-panel rule
+  (sheet ACL, no scheduled recipient delivery), not this one.
 
 ### `Host Snowflake` — the shared-object rule (DVT-1767)
 
