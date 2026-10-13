@@ -21,7 +21,7 @@ Useful tokens:
 - `page.background` — the canvas behind panels (or set `page.background` per page via `pages[].background`)
 - `panel.background`, `panel.border.color`, `panel.border.width`, `panel.radius`, `panel.shadow` — per-card chrome
 - `panel.title.size`, `panel.title.weight`
-- `page.density` — `comfortable` | `compact` (closed enum; unset = comfortable). Comfortable: 36 px table rows, 14 px cells, 16 px grid gaps. Compact: 28 px rows, 12 px cells, KPI value one size step smaller; compact scales panel padding to 0.75x and the grid gap to 8 px, and never shrinks table cell text below 12 px. An explicit `layout.gap` or `grid.xGap`/`grid.yGap` still wins over density's gap.
+- `page.density` — `comfortable` | `compact` (closed enum; unset = comfortable). Comfortable: 36 px table rows, 14 px cells, 16 px grid gaps. Compact: 28 px rows, 12 px cells, KPI value one size step smaller; compact scales panel padding to 0.75x and the grid gap to 8 px, and never shrinks table cell text below 12 px. Compact also tightens hero spacing and action-button padding; divider is exempt (density leaves decorative rules alone). An explicit `layout.gap` or `grid.xGap`/`grid.yGap` still wins over density's gap.
 - `page.contentWidth` — `reading` | `wide` | `full` (closed enum) = max content width 1140 / 1440 / 1600 px, centered; app chrome does not move. Author-only. Precedence: `layout.maxWidth` > `page.content.width` (px token) > `page.contentWidth` > surface default. Read at page scope only; a `panel.overrides` value is accepted but has no effect.
 - `panel.subtitle.size`, `panel.subtitle.weight`, `panel.subtitle.color` — per-card subtitle typography (falls back to `text.secondary`)
 - `text.primary`, `text.secondary`, `text.muted`
