@@ -150,7 +150,7 @@ like a grid one.
   standard `/dashboard` viewer and the headless render/export surface honor fullBleed too,
   but ONLY as padding=0 + maxWidth=none — app chrome is NOT hidden there; only `/present`
   hides chrome (hiding nav in the main viewer would break navigation). Canvas mode implies
-  full-bleed on `/present` and in the builder preview pane (which mirrors it, DVT-2374
+  full-bleed on `/present` (DVT-2374
   review r2 F3); the standard viewer and the headless render surface still require an
   explicit `fullBleed: true` — a canvas page without it keeps its padded/capped rendering on
   those two surfaces. Open a canvas dashboard, then click **Present** for the immersive

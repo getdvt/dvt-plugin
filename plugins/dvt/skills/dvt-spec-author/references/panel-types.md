@@ -1567,7 +1567,7 @@ scalars, ranges, and dates alike). Dates encode the relative **intent** ("last 7
 days"), not the resolved dates, so a shared "last 7 days" re-resolves against the
 recipient's current day. No authoring action is required; an unset filter simply
 drops its URL param. (View-time URL sync is on for the live viewer and the immersive
-present view; the Builder authoring canvas and headless renders don't touch the URL.)
+present view; headless renders don't touch the URL.)
 
 **`filter`** — a dashboard-level control (its own panel). The selectable options come
 from the panel's own `data` (a `SELECT DISTINCT` value query, or baked `data.rows`),
