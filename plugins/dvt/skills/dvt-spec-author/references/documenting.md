@@ -92,12 +92,17 @@ Per-element documentation lives in the dashboard manifest at `meta.panels`, keye
 
 ### Writing revision notes (the build log)
 
-Every write records a note in version history. Write it unprompted: one specific sentence saying what changed and why, tied to a key question where possible. Empty or placeholder notes ("update", "changes", under 3 words) are rejected.
+Every write records a note in version history. Write it unprompted: one specific sentence saying what changed and why, tied to a key question where possible. Empty or placeholder notes ("update", "changes", under 3 words, or localized equivalents like "更新", "aktualisiert", "mise à jour") are rejected.
 
 - `dvt_dashboard_apply_spec` `change_summary` — good: "Added regional revenue page and pinned the date filter to answer Q2"; bad: "updated dashboard".
 - `dvt_sheet_create` / `dvt_sheet_patch` / `dvt_skill_create` / `dvt_skill_update` `change_summary` — same rule, required.
 - `dvt_element_write` `reason` — good: "Switched churn chart to a 12-month rolling rate; monthly values were too noisy to read"; bad: "fix chart".
+- `dvt_element_write` / `dvt_element_delete` / `dvt_page_write` (`create`, `patch`, `reorder`) / `dvt_page_delete` `reason` — same rule, required.
+- `dvt_restore` `reason` — required for every entity (dashboard, page, element); good: "Restored the pre-redesign Overview page; the new layout dropped the churn context".
 - `dvt_dashboard_meta_patch` `reason` — good: "Reworded the brief to lead with the finding, not the topic"; bad: "docs".
+- `dvt_dashboard_delete` / `dvt_dashboard_move` / `dvt_dashboard_visibility_set` / `dvt_branding_set` `reason` — required; recorded on the audit log entry rather than version history.
+
+Notes on restore and page create/delete/reorder are merged into the dashboard revision summary (e.g. "Removed page Churn — <why>"). Export/email schedules, folder tools, comments and favorites take no note.
 
 ### Researching existing dashboards with `dvt_dashboard_get(view="docs")`
 

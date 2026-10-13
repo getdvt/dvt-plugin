@@ -74,9 +74,11 @@ Fill `meta.brief`, `meta.audience` (`executive` | `analyst` | `operator`) and `m
 from the request on every create, unprompted; put assumptions you made in the brief.
 
 **Build log.** Every write records a change note in version history (`change_summary` on `apply_spec` and sheet/skill
-create+update; `reason` on element writes/deletes, page patch, `meta_patch`, and element restore). Write one specific sentence, what and why, tied to
+create+update; `reason` on element writes/deletes, page create/patch/reorder/delete, `meta_patch`, `dvt_restore`, dashboard
+delete/move/visibility, and `dvt_branding_set`). Write one specific sentence, what and why, tied to
 a key question where you can, without being asked. Good: "Split revenue by region to answer Q1: which
-region is dragging growth". Bad: "update". Empty or placeholder notes are rejected server-side.
+region is dragging growth". Bad: "update". Empty or placeholder notes, including
+localized ones ("更新", "mise à jour"), are rejected server-side.
 
 Preview before persisting any net-new or multi-panel change, and show the user the plan as a
 `Row | Panels` table per page built from `plan.layoutSummary` (size cues relative to that page's own
