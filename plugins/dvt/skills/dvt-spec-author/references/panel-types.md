@@ -1417,8 +1417,13 @@ Rules to know before you author one:
 - **Edit DATA with `dvt_sheet_rows_append` + `dvt_sheet_flush`**, never through the
   panel or the spec. No new tool exists for the panel.
 - **Renders show sheet rows only to the requester.** Renders delivered only to you show the
-  sheet rows you can read; thumbnails, shared or hosted renders, schedules, emails, and
-  other recipients show a placeholder instead. Linked sheets are never rendered. For a scheduled report over sheet data, use a
+  sheet rows you can read; thumbnails, shared or hosted renders, schedules, and other
+  recipients show a placeholder instead. An email carries the first page of rows only when
+  you send it from the dvt app and every recipient is the address you verified in dvt, and the
+  panel has no `filterBindings`. Emails sent through MCP or an agent, and unattended
+  scheduled sends, always show a placeholder; Run now of a schedule addressed only to you
+  carries rows. Linked sheets are
+  never rendered. For a scheduled report over sheet data, use a
   `table` panel over the sheet's flushed warehouse table on a pushdown connection
   (governed by warehouse grants; see data-sources.md, "Using dvt Sheet data in a
   dashboard"). The sheet's ACL is not consulted on that table route: recipients see
