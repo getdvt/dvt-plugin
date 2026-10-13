@@ -242,7 +242,7 @@ group by o.region
 
 **Backend-free specs:** add `data.rows` (an array of row objects) and the panel
 renders from those directly — **no engine, no warehouse, no live query.** This makes
-a spec fully self-contained (great for demos, the `/builder`, and static hosting).
+a spec fully self-contained (great for demos and static hosting).
 Keep `query` alongside `rows` so the SQL inspector still shows real SQL:
 
 ```json

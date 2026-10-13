@@ -8,8 +8,8 @@ description: Author and edit dvt dashboard specs (JSON). Use when a user wants t
 dvt dashboards are **JSON specs** — "dashboards as data." A spec is declarative: it
 describes panels, their data queries, layout, and a token-based theme. The same
 spec renders the same pixels every time. Hand this skill to your AI harness so it
-can write and edit dvt specs directly, then paste the result into the dvt Spec
-Builder (`/builder`) to see it render live.
+can write and edit dvt specs directly, then apply it with the dvt MCP
+tools to see it render live.
 
 ## How to use this skill
 
