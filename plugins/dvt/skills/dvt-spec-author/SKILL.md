@@ -127,6 +127,15 @@ sample data — that is step 1's job. Record the answer in `meta.decisions` as
 convention only; `dvt_spec_validate` neither requires nor enforces it, though a 3+ panel spec without it
 draws a `warn` (DVT-881).
 
+### 3c. Page archetype — pick and state one before placing panels (DVT-5250)
+
+Call `dvt_reference(topic="page")` and pick one archetype for the landing page: `briefing` (executive,
+answer first), `monitor` (live status, threshold tiles on top), `diagnostic` (one dominant chart plus a
+filter, why did it move), `comparison` (equal-width small multiples), `flow` (funnel or sankey anchor),
+`ledger` (table-first work surface). Record it in `meta.archetype` and one line in `meta.decisions`:
+`"Archetype: <id> — <why>"`. Never default to a KPI row → full-width charts → table stack. Validation
+warns on a missing archetype (3+ panels) or a landing page that deviates from it; it never errors.
+
 ### 4. Design — encoding and layout in service of the message
 
 Match the chart to the analytical task (trend → line, comparison → bar, distribution → histogram,
