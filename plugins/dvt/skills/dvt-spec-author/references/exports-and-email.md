@@ -94,15 +94,23 @@ Always supply `timezone` (IANA name, e.g. `"America/New_York"`) so the cron fire
 at the right wall-clock time for the audience — default is `UTC`.
 
 **Element-grain exports (`panel_id`):** supply a panel id to export a single chart
-rather than the whole dashboard.  The server enforces PNG for panel-scoped schedules
-— always set `format="png"` when providing `panel_id`.  Panel ids come from the
+rather than the whole dashboard.  A panel-scoped schedule takes `format="png"`, or
+`"xlsx"`/`"csv"` when the panel is a TABLE panel (pdf cannot be panel-scoped; xlsx/csv
+require `panel_id`).  xlsx/csv are email-only (no Slack channels), at most 10,000 rows
+and an 8 MiB attachment, and need `data:query` + `data:export` on top of `dashboard:write`.
+Set `format` explicitly when providing `panel_id`.  Panel ids come from the
 `panels[*].id` field in the dashboard spec; use `dvt_dashboard_get` to enumerate them.
+
+Note: scheduled exports are recurring PDF/PNG/XLSX/CSV emails.  The *interactive* file-export
+path (a viewer clicks, a formatted workbook downloads) is a `python` download action on an
+`action-button`, not `exportPage`/`exportAll` (not wired) — see "Export button (formatted
+Excel/CSV)" in `panel-types.md`.
 
 ```
 dvt_export_schedule_create(
     dashboard_id = "<uuid>",
     panel_id     = "panel-revenue-trend",   # scope to one chart
-    format       = "png",                   # required when panel_id is set
+    format       = "png",                   # png here; xlsx/csv for a table panel
     preset       = { "kind": "daily", "atHour": 8 },
     timezone     = "America/Chicago",
     slack_channels = [{ "label": "#revenue", "webhook_url": "https://hooks.slack.com/services/…" }],
