@@ -135,8 +135,11 @@ Rows are capped at 10,000; an xlsx carries a truncation note when the cap is hit
 exports and emails to recipients never carry a sheet panel's rows** (ADR-0091 I10, FQ-2) —
 schedule a table panel over the sheet's warehouse table instead. **On-demand** export of a
 sheet panel is allowed to the requester only (the panel's grid toolbar, or
-`dvt_panel_export`): plain data, max 10,000 rows, under the sheet ACL plus `data:query` and `data:export`,
-and audited.
+`dvt_panel_export`): max 10,000 rows, under the sheet ACL plus `data:query` and `data:export`,
+and audited. The grid toolbar offers CSV, Excel (data) and, only when the panel has
+`presentation.conditionalFormat` rules, Excel (formatted); `dvt_panel_export` with
+`style="formatted"` (xlsx only) does the same, baking the rules' discrete colours and
+`presentation.frozenColumns`.
 
 xlsx/csv schedules are **attached to the email and never stored** — the file is built in
 memory at fire time and sent, with no download link and no object storage.  They are
@@ -319,7 +322,7 @@ what they get.
   formats, frozen header, autofilter.  Works on **every** panel type.
 - `style="formatted"` — the same, plus the table's rendered look **baked in as static
   cell styles**: cell colors from conditional formatting and color scales, fonts,
-  alignment, column widths, frozen columns.  **Table panels only, and xlsx only.**
+  alignment, column widths, frozen columns.  **Table or sheet panels, xlsx only** (a sheet bakes its discrete rule colours, frozen columns and themed header; no fonts or widths).
 
 `formatted` is refused before any query runs for a chart, KPI or metric panel (there is
 no cell presentation to bake) and for CSV (a CSV file has no styling at all).  Both
