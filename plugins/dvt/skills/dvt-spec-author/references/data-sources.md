@@ -57,9 +57,10 @@ queries the flushed table with ordinary SQL — there is no separate "sheet" sou
 
 **Where the rows live.** `dvt_sheet_get` returns `targetDatabase`, `targetSchema` and
 `targetTable`. They are **null until the sheet's first flush** (the UI's "Sync now", or
-`dvt_sheet_flush`) — there is nothing to query before then. `targetDatabase` defaults to
-the install's writeback database (`dvt_writeback`; on the native app `DVT_WRITEBACK`, or the
-name the install was set up with). The rest depends on the warehouse:
+`dvt_sheet_flush`) — there is nothing to query before then. On Snowflake `targetDatabase`
+is the install's writeback database (`dvt_writeback`; on the native app `DVT_WRITEBACK`, or the
+name the install was set up with); on Postgres and Redshift it reads `dvt_writeback`, but the
+rows live in the connection's own database (see below). The rest depends on the warehouse:
 
 - **Snowflake:** the writeback database (`dvt_writeback`, or `DVT_WRITEBACK` / the install's own name on the native app), a schema per root folder (`unfiled` for sheets
   outside any folder), and a table named for the sheet. The table and its columns are
@@ -67,8 +68,8 @@ name the install was set up with). The rest depends on the warehouse:
   does not resolve. Query `<targetDatabase>.<targetSchema>."<targetTable>"` and double-quote each
   column name with exact case. The querying role needs `USAGE` on the database and schema
   plus `SELECT`.
-- **Postgres and Redshift:** a single schema `dvt_writeback` in the connection's own
-  database, with the folder path folded into the table name. Query
+- **Postgres and Redshift:** a single schema `dvt_writeback` (it exists only on these two) in the
+  connection's own database, with the folder path folded into the table name. Query
   `dvt_writeback."<targetTable>"` (double-quote the table, and the columns if their names
   are not plain lowercase). The querying role needs `USAGE` on schema `dvt_writeback` plus
   `SELECT`.
@@ -83,14 +84,14 @@ sheet's own columns by name — never `SELECT *` — so these stay out of panels
 
 **Which data source reads it.** The sheet's writeback connection is never a query source:
 dvt refuses to run panel queries through it. Use a *different*, non-writeback connection
-on the same warehouse whose role can read the writeback schema:
+on the same warehouse whose role can read the sheet's writeback tables:
 
 - **Snowflake native app:** `source_id="Host Snowflake"`, and an admin must grant the
   querying role the app's read-only `dvt_writeback_reader` application role (plus `USAGE`
   on the install's writeback database — `targetDatabase`). A linked sheet uses `dvt_linked_reader` instead, and
   its flushed table is a changelog of extension-column edits, not the merged rows.
 - **Hosted / other warehouses:** a pushdown connection whose role has the grants listed
-  above on the `dvt_writeback` schema and tables.
+  above on the sheet's writeback tables (see "Where the rows live").
 
 Data sources are named in `dvt_dashboard_get` output (each element's `sourceId`). If the
 workspace has no such data source, ask an admin to add one — do not guess a `source_id`.
@@ -157,12 +158,14 @@ warehouse table**, and which scheduler carries it depends on the edition.
 
 - **Hosted.** An export schedule (`dvt_export_schedule_create` with `format: "xlsx"`) on a
   table panel over the sheet's warehouse table, on a **non-writeback** pushdown connection.
-  It is governed by the querying role's `SELECT` on the `dvt_writeback` schema, not by the
-  sheet ACL. Choosing this route is an explicit owner decision: every named recipient
+  It is governed by the querying role's `SELECT` on the sheet's writeback tables (see
+  "Where the rows live"), not by the sheet ACL. Choosing this route is an explicit owner decision: every named recipient
   receives those rows whether or not they can open the sheet.
 - **Native app 1.1.1 and later.** A relay email report: each table panel is attached as an
   `.xlsx` (up to 50 rows), and it requires the admin opt-in to the customer SMTP relay. It is
-  governed by the `dvt_writeback_reader` role's warehouse grants, not by the sheet ACL, with
+  governed by the `dvt_writeback_reader` role's warehouse grants (linked sheets use
+  `dvt_linked_reader`, and their table is the extension changelog, not the merged rows; see the
+  bullet under "Which data source reads it"), not by the sheet ACL, with
   the same owner decision about recipients. `dvt_export_schedule_create` is not available
   on a native-app install.
 - **Why it differs from the sheet-panel rule.** A sheet panel's rows are sheet-ACL data, so

@@ -137,9 +137,10 @@ schedule a table panel over the sheet's warehouse table instead. **On-demand** e
 sheet panel is allowed to the requester only (the panel's grid toolbar, or
 `dvt_panel_export`): max 10,000 rows, under the sheet ACL plus `data:query` and `data:export`,
 and audited. The grid toolbar offers CSV, Excel (data) and, only when the panel has
-`presentation.conditionalFormat` rules, Excel (formatted); `dvt_panel_export` with
-`style="formatted"` (xlsx only) does the same, baking the rules' discrete colours and
-`presentation.frozenColumns`.
+`presentation.conditionalFormat` rules, Excel (formatted). `dvt_panel_export` with
+`style="formatted"` (xlsx only) bakes the rules' discrete colours and
+`presentation.frozenColumns` the same way, but is not gated on rules: with none it still
+bakes the themed header, widths and frozen columns.
 
 xlsx/csv schedules are **attached to the email and never stored** — the file is built in
 memory at fire time and sent, with no download link and no object storage.  They are
