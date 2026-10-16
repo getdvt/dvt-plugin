@@ -1441,7 +1441,7 @@ sheet name or a row count (ADR-0091 I3); those resolve from the sheet at read ti
 | `filterBindings` | Map of dashboard filter parameter name to the sheet column it filters. A sheet panel is a filter TARGET this way. |
 | `readOnly` | `true` hides edit affordances. `false` (default) grants nothing. |
 | `pageSize` | Rows per page, 25 to 500 (default 100). |
-| `sort` | Default sort, 1 to 3 `{ column, dir: "asc"\|"desc" }` items; `column` unique across items. Only the first key is applied today. |
+| `sort` | Default sort, 1 to 3 `{ column, dir: "asc"\|"desc" }` items; `column` unique across items. The grid, the static view, the REST export and the scheduled email apply every key; the MCP `dvt_panel_export` applies only the first (DVT-5435). |
 | `presentation` | `frozenColumns` (0 to 3), `columnWidths` (column name to 48 to 640 px), `conditionalFormat` (up to 50 rules, same vocabulary as `table`; applied by the grid, the static view and the formatted xlsx export; `topN` / `bottomN` rank over the whole filtered population). |
 
 Rules to know before you author one:
