@@ -600,7 +600,7 @@ up and given a real comparison binding):
 - **`comparison`**: `{ field?, agg?, mode?, improvement? }`. With `field`, the comparison value is that column; omit `field` to compare the last two points of the value series. `mode`: `percent | delta | both` (default `percent`). `improvement`: `up` (default) or `down` — set `down` for metrics where lower is better (cost, churn) so the chip colors green/red semantically.
 - **`sparkline`**: `{ field?, color? }` — needs ≥2 rows; `field` defaults to `valueField`. Omit for no trend line.
 - `label`, `caption`, `color`, `align` (`left | center`) trim the chrome. A `kpi` carrying both
-  `caption` and `sparkline` needs `h ≥ 5` — at `h:4` the caption clips (DVT-3540).
+  `caption` and `sparkline` shows everything at `h ≥ 5`; at shorter heights the card degrades in order — sparkline hidden first, then the caption (its text stays in the value tooltip unless `description` is set) — instead of clipping (POLISH-3; was DVT-3540).
 - **`description`** (optional) — a plain-text explanation of the metric shown as a hover tooltip; falls back to `caption` when not set. dvt Core, renderer-neutral (DVT-558).
 
 ### Rich tables — conditional formatting, heat maps, in-cell viz, pivot (DVT-507)
@@ -1328,7 +1328,7 @@ band instead on either.
 >   first, it spends credits and may write). It runs the action exactly as a
 >   click would, under the dashboard's source-connection identity (caller's
 >   rights or the shared service credential — see the identity paragraph
->   below), — an MCP caller is a human-bound `agent` principal, admitted by
+>   below) — an MCP caller is a human-bound `agent` principal, admitted by
 >   ADR-0084's 2026-09-23 amendment; a service-credential run is refused
 >   once DVT-4588 enforces the identity gate — and returns the result shape
 >   or the failure with its `grants` — never tell the user to click and
@@ -2015,7 +2015,7 @@ which `valueFrom`/`when.field` actually fires:
   row, one tab stop per actionable row (Enter/Space activates). **Exception (DVT-4205):** on
   `table` only, `valueFrom: "column"` / `valueFrom: "columnLabel"` ARE actionable — the table's
   mouse-click equivalent of a chart's `category` — carried by a **MOUSE** cell click or a
-  column/panel `contextMenu` click, and by keyboard row activation (Enter/Space) only when
+  column/panel `contextMenu` click (never from a row-bound column — see "Binding the clicked column"), and by keyboard row activation (Enter/Space) only when
   `onClick.column` is authored and resolves to a rendered column (that gated column is the one
   bound); otherwise a `bindings[]` entry using either token has **no row tab stop** (no keyboard
   affordance without dispatch), and its keyboard-menu entry renders **disabled** in every case.
@@ -2054,14 +2054,14 @@ User-facing disclosure copy always says "Click…", never "Right-click…", even
 only wired action lives behind `contextMenu`.
 
 **The one exception — a named column (DVT-4165).** A `table`'s `onClick` is row-scoped by default:
-the click fires from ANY cell in the row. If the user names a column ("clicking *move-ins* should
+the click fires from ANY cell in the row (bar a row-bound column, see "Binding the clicked column" below). If the user names a column ("clicking *move-ins* should
 open the detail"), set `onClick.column` to that `columns[].field` — the mouse click then fires only
 from that column's cells, and only those cells show the clickable cursor/label. Everything else is
 unchanged: the bound datum is still the whole ROW (so `valueFrom` still names any row field, not
 necessarily the gated column), and keyboard activation of the focused row still fires the action
 regardless of column, because the row owns the tab stop. `column` is table-only — the schema
 rejects it on every other panel type — and it must name a column the table actually RENDERS. If it
-resolves to none, the panel's whole click surface closes: no clickable cells, no row tab stops, and
+resolves to none — or names a row-bound column — the panel's whole click surface closes: no clickable cells, no row tab stops, and
 no keyboard-menu entry either (a partial failure would leave a keyboard-only path to an action no
 cell would fire). The trap to watch is a **pivot** table — its measure columns are generated from
 the data, so only a `pivot.rows` field can be named there, never a `spec.columns[]` measure.
@@ -2096,6 +2096,15 @@ row activation (Enter/Space) when `onClick.column` resolves to a rendered column
 action bound to either token has no row tab stop, and its keyboard-menu entry always renders
 disabled (see the Actionability rule above). See the SQL-pivot example below (under
 `onClick.column`).
+
+**Row-bound columns (POLISH-60/62).** A column that is itself one of the action's row-field
+binding sources (a `valueFrom`/`bindings[].valueFrom` — or, in a `link.url`, a `{field}` — names it)
+has no honest `{column}` value, so when that same action also binds `column`/`columnLabel` it is
+carved out. `onClick`: that column's cells are not clickable (no cursor, label or dispatch), and an
+`onClick.column` naming it closes the panel's whole click surface, same as a column that does not
+render. `contextMenu`: only the offending entry renders disabled (tooltip "Not available on this
+column — this action already binds this column from the row."); the rest of the menu stays usable.
+A dvt-native `pivot:` table emits no column tokens, so none of this applies there.
 
 Until DVT-3040 lands, the Actionability rule above applies identically to `contextMenu` — a
 row-field `valueFrom`/`when.field` is just as unreliable there (measured live on FCC 2026-08-28: a
@@ -2133,8 +2142,8 @@ instead (see the `drill` rule below). `targetPage` (required) — a `pages[].id`
 on the target page's panels. `valueFrom`: `category`
 (default) | `value` | `seriesName` | a field name from the clicked row (use a field name
 for tables) | — `column` / `columnLabel` (DVT-4205; the table's clicked column field / rendered
-header label — mouse cell click or `contextMenu`, plus keyboard row activation only when
-`onClick.column` resolves). `valueType` — as above.
+header label — mouse cell click or `contextMenu`, minus row-bound columns, plus keyboard row
+activation only when `onClick.column` resolves). `valueType` — as above.
 
 ```json
 { "id": "rev-by-region", "type": "chart:bar", "title": "Revenue by Region",
@@ -2243,10 +2252,11 @@ cells rather than to the whole row:
 // row still fires — the row, not the cell, owns the tab stop.
 ```
 
-Drop `column` and every cell in the row fires the same action — that is the default, and the right
+Drop `column` and every cell in the row (bar a row-bound column) fires the same action — that is the default, and the right
 choice unless the user scoped the drill to a particular column. A `column` naming something the
-table does not render (a typo, or a measure on a pivot) is not a partial degradation — it closes
-every click surface the panel has, keyboard menu included, and `dvt_spec_validate` says so.
+table does not render (a typo, or a measure on a pivot) or a row-bound column is not a partial degradation — it closes
+every click surface the panel has, keyboard menu included. `dvt_spec_validate` warns on the typo and pivot cases, not on a
+row-bound column — verify that one with a render.
 
 `onClick.column` gates; `valueFrom: "column"` / `valueFrom: "columnLabel"` (DVT-4205) binds which
 column fired — the case above scopes the drill to one fixed column (`move_ins`), but a

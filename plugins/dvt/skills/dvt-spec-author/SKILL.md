@@ -19,7 +19,7 @@ serves those, so ground every choice in `dvt_reference`, in staged `topic` order
 Each returns a catalog with no `name` and drills into a type with one; never guess a shape.
 The detailed reference is loaded on demand (listed at the end) from wherever this file itself came
 from: plugin tree `references/<name>.md`, web `/dvt-spec-authoring-skill/references/<name>.md` on the
-host that served this file, or MCP `dvt://skill/spec-authoring/references/<name>`. Need the whole
+host that served this file, or MCP `dvt_reference(topic="authoring", name=<stem>)` (or `dvt://skill/spec-authoring/references/<name>` where resources are available). Need the whole
 skill as one file (e.g. to hand to a harness with no MCP access)? `dvt-spec-authoring-skill.full.md`
 is served at `/dvt-spec-authoring-skill.full.md` on the web host that served this file (dvt.dev / the
 app origin) and bundles it with every reference.
@@ -185,10 +185,10 @@ Headless: one full-spec `dvt_dashboard_apply_spec`, so nothing is left half-buil
 
 ### 5. Build, then see it
 
-Validate with `dvt_spec_validate`, then `dvt_dashboard_render_inline` each page at desktop and mobile
+Validate with `dvt_spec_validate`, then `dvt_dashboard_render_inline` each page (if it is unavailable on this surface, fall back as below) at desktop and mobile
 widths and read `renderSummary` before the image: any warning means the render did not succeed. Report
 evidence as numbers ("6 points across 1 series"). `pointsDrawn: 0` with rows means a binding bug; with no
-rows, an empty query. A `not-measured` panel is unverified, not passed. If render is unreachable, fall
+rows, an empty query. A `not-measured` panel is unverified, not passed. If render is unreachable or unavailable, fall
 back to `dvt_spec_validate` plus `dvt_data_query` and say so. Close with the final layout table, the
 link, and one-line caveats. The full `renderSummary` contract is in `references/authoring-method-detail.md`.
 
@@ -216,7 +216,7 @@ The machine-readable JSON Schema lives at `spec/schema/dashboard.schema.json` in
 
 Each file sits in `references/` beside this one — in the plugin tree at `references/<name>.md`, on
 the web host that served this file at `/dvt-spec-authoring-skill/references/<name>.md`, and over MCP
-at `dvt://skill/spec-authoring/references/<name>`. Need every reference in a single file instead?
+via `dvt_reference(topic="authoring", name=<stem>)` (or `dvt://skill/spec-authoring/references/<name>` where resources are available). Need every reference in a single file instead?
 `dvt-spec-authoring-skill.full.md`, served at `/dvt-spec-authoring-skill.full.md` on the web host that
 served this file (dvt.dev / the app origin), bundles this file plus all of them.
 

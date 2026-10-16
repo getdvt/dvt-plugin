@@ -294,7 +294,7 @@ dvt provides a declarative `annotations[]` array on `ChartSpec` for reference li
                "maxWidth": 120, "position": "start", "offset": [0, 10] } }
   ```
 
-  Labels are always emitted as a **static string** — no `backgroundColor`/`rich` (the `image://` SSRF sinks, ADR-0041 §5); reference-line labels default to `insideEndTop` so they stay inside the plot (DVT-492). `point` markers render as a small circle with the label above it; **lines and point/text markers are interactive** — hover shows the label + value (bands stay passive so they don't block the axis tooltip) (DVT-500).
+  Labels are always emitted as a **static string** — no `backgroundColor`/`rich` (the `image://` SSRF sinks, ADR-0041 §5); y-axis (horizontal) reference-line labels default to `insideEndTop`, inside the plot (DVT-492). x-axis (vertical) lines put the label in a top gutter outside the plot (`grid.top` is widened to fit): ECharts position `end` on a normal y axis, `start` only when the host series' y axis is `inverse` — it depends on `inverse` alone, not the y-axis type. `middle` stays inside the plot; any other author position on an x-axis line collapses to the gutter. `point` markers render as a small circle with the label above it; **lines and point/text markers are interactive** — hover shows the label + value (bands stay passive so they don't block the axis tooltip) (DVT-500).
 
 **Annotation tokens** (`annotation.*` namespace, overridable per dashboard or org):
 
