@@ -102,10 +102,11 @@ Set `format` explicitly when providing `panel_id`.  Panel ids come from the
 `panels[*].id` field in the dashboard spec; use `dvt_dashboard_get` to enumerate them.
 
 Note: scheduled exports are recurring PDF/PNG/XLSX/CSV emails.  The *interactive* file-export
-path (a viewer clicks, a formatted workbook downloads) is a `python` download action on an
-`action-button`, not `exportPage`/`exportAll` (not wired) — see "Export button (formatted
-Excel/CSV)" in `panel-types.md`. Unlike xlsx/csv schedules, the python download is not gated by
-`data:export` (author-granted; needs only `data:query`).
+path (a viewer clicks, a workbook downloads) is an `action-button`: `exportPage`/`exportAll` for a
+zero-code data export (needs `data:export`), or a `python` download action for a custom-formatted
+file — see "Export button (formatted Excel/CSV)" in `panel-types.md`. Unlike `exportPage`/`exportAll`
+and xlsx/csv schedules, the python download is not gated by `data:export` (author-granted; needs
+only `data:query`).
 
 ```
 dvt_export_schedule_create(
