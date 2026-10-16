@@ -1342,7 +1342,11 @@ whose `action` is `kind: "python"` with `result: { "mode": "download" }` and
 `{"content": bytes, "filename": "report.xlsx"}`; the viewer's browser downloads the file. The
 Snowflake source goes on the PANEL's `data.sourceId`, not inside the action. The
 `exportPage`/`exportAll` action kinds are NOT WIRED (render, click does nothing, DVT-4220) — do
-not use them for this. Skeleton (header style, number format, freeze panes, `{content, filename}`
+not use them for this. The download is granted by the author who places the button: running it
+needs `data:query`, and it is NOT gated by `data:export` (unlike panel/sheet/dashboard exports,
+xlsx/csv export schedules and email reports, which all require `data:export`), so any viewer who can run
+the button gets the file — only add a python download button where every viewer of the dashboard
+may have that data as a file. Skeleton (header style, number format, freeze panes, `{content, filename}`
 return):
 
 ```json
