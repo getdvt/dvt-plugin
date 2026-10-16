@@ -1705,7 +1705,7 @@ a panel that doesn't declare the key is never re-fetched. `values` — a static
 commit timing. Default: instant controls (`select`, `search`, `toggle`, `number`) commit
 on each change; batched controls (`multiselect`, `number-range`, `date-range`) hold in a
 draft until the viewer presses Apply. `"button"` forces an explicit Apply step even for
-normally-instant controls; `"live"` forces immediate commits even for batched controls.
+normally-instant controls; `"live"` forces immediate commits even for batched controls. Filters with placement 'report' live in the dashboard filter toolbar, where edits always wait for the toolbar's Apply button ('Show results' on phone); this override and the instant controls' per-control timing apply only to inline (non-report) filters, except report filters the toolbar hosts as their original control (toggle, search, number scalar, top-n, and select/multiselect with searchMode 'server'), which keep that control's own timing, including apply.
 `required`: `true` — suppresses the clear/All affordance and holds target queries until
 a value is chosen (prevents a "fetch everything" on expensive panels while unset). Default
 `false`. `chrome`: `"card"` (default) | `"none"` — `"none"` renders the bare control only
