@@ -38,6 +38,9 @@ Classify the request first; the two paths differ a lot in cost and risk.
   only when a patch route refuses the edit (a `layout.mode` change, a `legacy-dashboard` 409).
 - **Full build** — something new, exploratory, or a restructure. Run the method below.
 
+In a workspace you haven't seen, call `dvt_getting_started` first, and read a showcase dashboard in the
+org-visible Examples folder (`dvt_dashboard_get`) before authoring your own.
+
 When in doubt, prefer the full method. Error codes and the full edit contract are in
 `references/authoring-method-detail.md`.
 
@@ -189,7 +192,7 @@ Validate with `dvt_spec_validate`, then `dvt_dashboard_render_inline` each page 
 widths and read `renderSummary` before the image: any warning means the render did not succeed. Report
 evidence as numbers ("6 points across 1 series"). `pointsDrawn: 0` with rows means a binding bug; with no
 rows, an empty query. A `not-measured` panel is unverified, not passed. If render is unreachable or unavailable, fall
-back to `dvt_spec_validate` plus `dvt_data_query` and say so. Close with the final layout table, the
+back to `dvt_spec_validate` plus `dvt_data_query` and say so. `dvt_spec_validate` lint flags overlapping grid panels. Close with the final layout table, the
 link, and one-line caveats. The full `renderSummary` contract is in `references/authoring-method-detail.md`.
 
 ### 6. Premium polish
