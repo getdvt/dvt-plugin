@@ -706,6 +706,12 @@ accept a `ColorTokenValue` (hex / `rgb()` / named / `{token}`) or a `FieldColorR
 | `isNull` / `isNotNull` | omit `value` | Null test |
 | `topN` / `bottomN` | integer N | Tier-B (cap-sensitive — a badge appears when result was capped) |
 
+On **sheet** panels, `topN` / `bottomN` on a declared numeric column (`n` a whole number, 1 to 10,000;
+at most 8 distinct rank rules per panel) are computed over the whole filtered population, so the grid, the
+static view and the formatted xlsx export agree and the colours do not shift on Load more. Only the degraded
+path (a rank the server could not compute, a non-numeric or undeclared column, or more than 8 rules) ranks
+over the loaded rows, and then a `≈` badge marks the column while more rows exist.
+
 `field` defaults to the column the rule is attached to; required for table-wide rules.
 Use `all: [...]` (AND) / `any: [...]` (OR) to combine sub-predicates (nesting capped at 5).
 
@@ -1436,7 +1442,7 @@ sheet name or a row count (ADR-0091 I3); those resolve from the sheet at read ti
 | `readOnly` | `true` hides edit affordances. `false` (default) grants nothing. |
 | `pageSize` | Rows per page, 25 to 500 (default 100). |
 | `sort` | Default sort, 1 to 3 `{ column, dir: "asc"\|"desc" }` items; `column` unique across items. Only the first key is applied today. |
-| `presentation` | `frozenColumns` (0 to 3), `columnWidths` (column name to 48 to 640 px), `conditionalFormat` (up to 50 rules, same vocabulary as `table`; accepted and validated, not yet applied by the grid). |
+| `presentation` | `frozenColumns` (0 to 3), `columnWidths` (column name to 48 to 640 px), `conditionalFormat` (up to 50 rules, same vocabulary as `table`; applied by the grid, the static view and the formatted xlsx export; `topN` / `bottomN` rank over the whole filtered population). |
 
 Rules to know before you author one:
 
