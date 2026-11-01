@@ -1,7 +1,7 @@
 {
   "name": "dvt",
   "version": "0.7.38",
-  "description": "DEPRECATED: dvt has been shut down and mcp.dvt.dev is offline, so this plugin no longer works. Uninstall with /plugin uninstall dvt@dvt-plugin.",
+  "description": "DEPRECATED: dvt has been shut down and mcp.dvt.dev is offline, so this plugin no longer works. Uninstall with /plugin uninstall dvt@dvt-plugin, then run: claude mcp remove dvt --scope user",
   "author": {
     "name": "dvt",
     "email": "team@dvt.dev"
