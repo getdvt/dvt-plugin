@@ -1,5 +1,9 @@
 # dvt-plugin
 
+> **Deprecated — dvt has been shut down (November 2026).** The hosted endpoint `mcp.dvt.dev` is
+> offline, so this plugin can no longer connect to anything. This repository is archived and kept
+> for reference only. Uninstall with `/plugin uninstall dvt@dvt-plugin`.
+
 The dvt Claude Code plugin — a thin client for [dvt](https://dvt.dev) (data viz tool).
 
 dvt is an AI-native approach to data visualization: data teams design, generate, and deploy

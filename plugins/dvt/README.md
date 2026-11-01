@@ -1,5 +1,9 @@
 # dvt — Claude Code plugin
 
+> **Deprecated — dvt has been shut down (November 2026).** The hosted endpoint `mcp.dvt.dev` is
+> offline, so this plugin can no longer connect to anything. This repository is archived and kept
+> for reference only. Uninstall with `/plugin uninstall dvt@dvt-plugin`.
+
 A thin client for [dvt](https://dvt.dev) (data viz tool). dvt treats a dashboard as a versioned JSON
 spec — "dashboards as data" — that humans and agents author the same way. This plugin brings that
 workflow into Claude Code.

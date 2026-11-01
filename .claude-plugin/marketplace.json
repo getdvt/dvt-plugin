@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "dvt-plugin",
-  "description": "dvt — give your AI a home for the dashboards it builds. Author dvt dashboard specs and push them live from Claude Code.",
+  "description": "DEPRECATED: dvt has been shut down and mcp.dvt.dev is offline. Kept for reference only.",
   "owner": {
     "name": "dvt",
     "email": "team@dvt.dev"
@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "dvt",
-      "description": "Author dvt dashboards (dashboards-as-data) from your AI harness — bundles the spec-authoring skill + an MCP client to mcp.dvt.dev.",
+      "description": "DEPRECATED: dvt has been shut down; this plugin's endpoint (mcp.dvt.dev) is offline. Kept for reference only.",
       "author": {
         "name": "dvt"
       },

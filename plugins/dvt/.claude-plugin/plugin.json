@@ -1,7 +1,7 @@
 {
   "name": "dvt",
-  "version": "0.7.37",
-  "description": "dvt dashboards-as-data: author, review, and apply dashboard specs from your AI harness against dvt Gallery (mcp.dvt.dev). Includes /dvt:dvt-review \u2014 a narrative + layout critique of a spec pre-apply, or of a built dashboard including its rendered pages.",
+  "version": "0.7.38",
+  "description": "DEPRECATED: dvt has been shut down and mcp.dvt.dev is offline, so this plugin no longer works. Uninstall with /plugin uninstall dvt@dvt-plugin.",
   "author": {
     "name": "dvt",
     "email": "team@dvt.dev"
